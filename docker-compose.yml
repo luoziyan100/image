@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: image2video_postgres
+    environment:
+      POSTGRES_DB: image2video_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    networks:
+      - image2video_network
+
+  # MongoDB 数据库
+  mongodb:
+    image: mongo:7
+    container_name: image2video_mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: image2video_dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - image2video_network
+
+  # Redis 缓存和任务队列
+  redis:
+    image: redis:7-alpine
+    container_name: image2video_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass redis123
+    networks:
+      - image2video_network
+
+  # Redis GUI 管理工具 (可选)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: image2video_redis_gui
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:redis123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - image2video_network
+
+  # PostgreSQL 管理工具 (可选)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: image2video_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@image2video.dev
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    networks:
+      - image2video_network
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+
+networks:
+  image2video_network:
+    driver: bridge

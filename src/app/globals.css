@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+/* Fabric.js Canvas 样式修复 - 覆盖Tailwind Preflight */
+@layer base {
+  /* 修复Fabric.js画布显示问题 */
+  .canvas-container canvas,
+  canvas.lower-canvas,
+  canvas.upper-canvas {
+    display: block !important;
+    border: none !important;
+    outline: none !important;
+    touch-action: none !important;
+    position: absolute !important;
+  }
+  
+  /* 确保Fabric.js容器正确显示 */
+  .canvas-container .canvas-wrapper {
+    position: relative !important;
+    overflow: visible !important;
+  }
+  
+  /* 防止touch事件干扰 */
+  .canvas-container .fabric-wrapper {
+    touch-action: none !important;
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}

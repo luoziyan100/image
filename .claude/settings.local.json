@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__playwright-mcp__browser_click",
+      "Bash(curl:*)",
+      "mcp__playwright-mcp__browser_navigate",
+      "mcp__playwright-mcp__browser_snapshot"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

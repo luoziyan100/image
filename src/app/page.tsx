@@ -24,8 +24,8 @@ export default function CreationPage() {
     if (!currentProject) {
       const defaultProject = {
         id: 'default-project-' + Date.now(),
-        title: '我的第一个创作',
-        description: '在这里开始你的AI创作之旅',
+        title: '我的创意故事',
+        description: '✨ 每个人都能成为故事创作者，让我们开始这段魔法之旅吧！',
         type: 'single_image' as const,
         status: 'draft' as const,
         createdAt: new Date().toISOString(),

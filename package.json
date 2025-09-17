@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:worker": "ENABLE_QUEUE_WORKER=true PORT=3001 next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
+    "start:worker": "ENABLE_QUEUE_WORKER=true PORT=3001 next start",
     "lint": "eslint"
   },
   "dependencies": {

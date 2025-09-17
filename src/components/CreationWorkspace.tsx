@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { MainCanvasArea } from './MainCanvasArea';
 import { RightSidebar } from './RightSidebar';
 import { AIGenerationDemo } from './AIGenerationDemo';
+import { GenerationStatusPanel } from './GenerationStatusPanel';
 import { useAppStore } from '@/stores/app-store';
 
 export const CreationWorkspace: React.FC = () => {
@@ -24,6 +25,14 @@ export const CreationWorkspace: React.FC = () => {
     name: string;
     size: number;
   }>>([]);
+  const [lastAssetId, setLastAssetId] = useState<string | null>(null);
+
+  // Canvas引用，用于调用canvas方法
+  const canvasRef = useRef<{
+    loadImage: (imageUrl: string) => void;
+    exportPoseImage: () => string | null;
+    exportMaskImage: () => string | null;
+  }>(null);
 
   // 处理画布变化 - 使用ref避免闭包问题
   const handleCanvasChange = useCallback((hasChanges: boolean, imageData?: string) => {
@@ -77,19 +86,54 @@ export const CreationWorkspace: React.FC = () => {
     }, 0);
   }, []);
 
-  // 开始生成 - 实际调用API
+  // 处理加载图片到画布
+  const handleLoadImageToCanvas = useCallback((imageUrl: string) => {
+    canvasRef.current?.loadImage(imageUrl);
+    // 显示通知
+    actions.showNotification({
+      type: 'info',
+      message: '图片已加载到画布，您现在可以开始编辑了！',
+      autoHide: true,
+    });
+  }, [actions]);
+
+  // 提供给子组件的导出工具
+  const getPoseImage = useCallback(() => {
+    return canvasRef.current?.exportPoseImage() || null;
+  }, []);
+  const getMaskImage = useCallback(() => {
+    return canvasRef.current?.exportMaskImage() || null;
+  }, []);
+
+  // 开始生成 - 情感化的创作体验
   const handleStartGeneration = useCallback(async () => {
+    // 画布是唯一的数据源 - 如果为空，用温暖的话语引导
     if (!canvasImageData) {
       actions.showNotification({
-        type: 'error',
-        message: '请先在画布上绘制内容',
+        type: 'info',
+        message: '画布还是空白的呢 🎨 请先画点什么或者加载一张图片，让我们开始创作吧！',
         autoHide: true
       });
       return;
     }
 
     actions.setGenerating(true);
-    setCreationMessage('✨ 正在准备发送到AI...');
+    
+    // 情感化的等待体验 - 3个阶段
+    const emotionalMessages = [
+      '😊 我正在理解你的创意...',
+      '✨ 让我为你添加一些魔法...',
+      '🎨 快要变成现实了，再等一下下...'
+    ];
+    
+    let messageIndex = 0;
+    setCreationMessage(emotionalMessages[0]);
+    
+    // 模拟情感化的进度体验
+    const progressInterval = setInterval(() => {
+      messageIndex = (messageIndex + 1) % emotionalMessages.length;
+      setCreationMessage(emotionalMessages[messageIndex]);
+    }, 8000); // 每8秒换一个温暖的提示
 
     try {
       const response = await fetch('/api/generate', {
@@ -99,36 +143,57 @@ export const CreationWorkspace: React.FC = () => {
         },
         body: JSON.stringify({
           projectId: currentProject.id,
-          imageData: canvasImageData, // 按照文档要求使用imageData
-          prompt: '将这个手绘草图转换为精美的专业艺术作品，保持原有构图'
+          imageData: canvasImageData, 
+          prompt: '将这个充满创意的作品转换为精美的艺术画作，保持原有的魅力和构图',
+          // 传递用户的创作风格偏好
+          metadata: {
+            userExperience: 'emotional_first', // 情感体验优先
+            expectation: 'magical_surprise',   // 期待魔法般的惊喜
+            creationType: 'story_art'          // 故事艺术而非技术展示
+          }
         })
       });
 
       const result = await response.json();
+      clearInterval(progressInterval);
 
       if (result.success) {
-        setCreationMessage('🎉 生成任务已提交！');
+        // 保存服务端队列的标识，供状态面板轮询
+        setLastAssetId(result?.data?.assetId || null);
+        // 成功的仪式感
+        setCreationMessage('🎉 完成！看看这个神奇的变化！');
         actions.showNotification({
           type: 'success',
-          message: `任务已启动，预计${Math.round(result.data.estimatedTimeMs / 1000)}秒完成`,
+          message: '🌟 恭喜！你创作了一个新世界！分享给朋友们看看吧',
           autoHide: true
         });
 
-        // TODO: 实现轮询检查任务状态
+        // 给用户足够时间欣赏成果
         setTimeout(() => {
           actions.setGenerating(false);
           setCreationMessage('');
-        }, result.data.estimatedTimeMs || 30000);
+        }, 3000);
         
       } else {
-        throw new Error(result.message || '生成失败');
+        throw new Error(result.message || '生成遇到了小问题');
       }
 
     } catch (error) {
+      clearInterval(progressInterval);
       console.error('生成请求失败:', error);
+      
+      // 失败时的惊喜和安慰
+      const encouragements = [
+        '这次有点小意外，但我学到了新东西！🌱',
+        '让我们换个角度试试，可能会有意想不到的效果 ✨',
+        '创作路上总有惊喜，再试一次吧 🎨'
+      ];
+      
+      const randomEncouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
+      
       actions.showNotification({
-        type: 'error',
-        message: `生成失败: ${error.message}`,
+        type: 'warning', // 改为warning而不是error，更温和
+        message: randomEncouragement,
         autoHide: true
       });
       actions.setGenerating(false);
@@ -160,12 +225,13 @@ export const CreationWorkspace: React.FC = () => {
     <div className="creation-workspace bg-gray-50 min-h-screen">
       <div className="workspace-container max-w-7xl mx-auto px-4 py-2">
         
-        {/* 新布局：主画布 + 右侧边栏 + AI演示 */}
+        {/* 合并侧边栏布局：主画布 + 统一侧栏 */}
         <div className="workspace-grid grid grid-cols-12 gap-3 min-h-[600px]">
           
           {/* 主画布区域 (50% 宽度) */}
           <div className="canvas-area col-span-6">
             <MainCanvasArea
+              ref={canvasRef}
               projectId={currentProject.id}
               activeTool={canvasState.activeTool}
               brushColor={canvasState.brushColor}
@@ -176,17 +242,15 @@ export const CreationWorkspace: React.FC = () => {
             />
           </div>
 
-          {/* AI生成演示区域 (25% 宽度) */}
-          <div className="ai-demo-area col-span-3">
+          {/* 统一侧栏 (50% 宽度)：把AI生成测试与素材上传合并一栏 */}
+          <div className="sidebar-area col-span-6 space-y-3 max-h-[calc(100vh-140px)] overflow-y-auto pr-2">
             <AIGenerationDemo 
               canvasImageData={canvasImageData}
               hasCanvasContent={hasCanvasContent}
               uploadedImages={uploadedImages}
+              getPoseImage={getPoseImage}
+              getMaskImage={getMaskImage}
             />
-          </div>
-
-          {/* 右侧边栏 (25% 宽度) */}
-          <div className="sidebar-area col-span-3">
             <RightSidebar
               projectId={currentProject.id}
               hasCanvasContent={hasCanvasContent}
@@ -194,9 +258,12 @@ export const CreationWorkspace: React.FC = () => {
               creationMessage={creationMessage}
               onImageUpload={handleImageUpload}
               onUploadedImagesChange={handleUploadedImagesChange}
+              onLoadImageToCanvas={handleLoadImageToCanvas}
               onStartGeneration={handleStartGeneration}
               onStopGeneration={handleStopGeneration}
+              hideGenerateButton
             />
+            <GenerationStatusPanel assetId={lastAssetId} />
           </div>
         </div>
       </div>

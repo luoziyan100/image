@@ -40,7 +40,9 @@ export interface TextToImageRequest {
 
 export interface ImageToImageRequest {
   type: 'image-to-image';
-  sourceImage: string; // base64 or URL
+  sourceImage: string; // base64 or URL (兼容旧字段)
+  // 新增：多图输入，按顺序传递；如提供此字段，优先使用该数组
+  sourceImages?: string[]; // e.g. [refA, refB, pose, ...]
   prompt: string;
   negativePrompt?: string;
   strength?: number; // 0-1, how much to change the image

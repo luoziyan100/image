@@ -33,8 +33,13 @@ export const JOB_TYPES = {
   CLEANUP_RESOURCES: 'cleanup-resources'
 } as const;
 
-// Worker 进程实现
-export const imageGenerationWorker = new Worker('image-generation', async (job: Job<GenerationJobData>) => {
+// 环境开关：是否在当前进程启动 Worker
+const WORKER_ENABLED = process.env.ENABLE_QUEUE_WORKER === 'true';
+
+// Worker 进程实例（默认不在导入时启动，避免在Next服务进程内重复消费）
+export let imageGenerationWorker: Worker | null = null;
+
+async function workerProcessor(job: Job<GenerationJobData>) {
   const { assetId, sketchData, userId } = job.data;
   
   try {
@@ -100,14 +105,41 @@ export const imageGenerationWorker = new Worker('image-generation', async (job: 
     
     throw error;
   }
-}, {
-  connection: redisConnection,
-  concurrency: 3, // 单个Worker实例最多同时处理3个任务
-  limiter: {
-    max: 5,    // 全局限制：每分钟最多5个API调用
-    duration: 60000 // 1分钟
+}
+
+export function startImageGenerationWorker(options?: { concurrency?: number }) {
+  if (imageGenerationWorker) {
+    console.log('ℹ️ Worker already started');
+    return imageGenerationWorker;
   }
-});
+  imageGenerationWorker = new Worker('image-generation', workerProcessor as any, {
+    connection: redisConnection,
+    concurrency: options?.concurrency ?? 3,
+    limiter: { max: 5, duration: 60000 }
+  });
+
+  // Worker 事件监听
+  imageGenerationWorker.on('completed', (job, result) => {
+    console.log(`🎉 Worker完成任务: ${job.id}`);
+  });
+  
+  imageGenerationWorker.on('failed', (job, error) => {
+    console.error(`💥 Worker任务失败: ${job?.id}`, error);
+  });
+
+  // 优雅关闭
+  process.on('SIGINT', async () => {
+    console.log('⏹️ 正在关闭队列系统...');
+    await imageQueue.close();
+    if (imageGenerationWorker) {
+      await imageGenerationWorker.close();
+    }
+    console.log('✅ 队列系统已关闭');
+    process.exit(0);
+  });
+
+  return imageGenerationWorker;
+}
 
 // 队列管理器
 export class QueueManager {
@@ -185,19 +217,7 @@ imageQueue.on('progress', (job, progress) => {
 });
 
 // Worker 事件监听
-imageGenerationWorker.on('completed', (job, result) => {
-  console.log(`🎉 Worker完成任务: ${job.id}`);
-});
-
-imageGenerationWorker.on('failed', (job, error) => {
-  console.error(`💥 Worker任务失败: ${job?.id}`, error);
-});
-
-// 优雅关闭
-process.on('SIGINT', async () => {
-  console.log('⏹️ 正在关闭队列系统...');
-  await imageQueue.close();
-  await imageGenerationWorker.close();
-  console.log('✅ 队列系统已关闭');
-  process.exit(0);
-});
+// 如果显式启用，则在当前进程启动 Worker（用于本地独立进程或显式启用场景）
+if (WORKER_ENABLED) {
+  startImageGenerationWorker();
+}

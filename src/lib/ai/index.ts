@@ -243,7 +243,8 @@ export async function transformImage(
     prompt,
     ...options
   };
-  
+  // 兼容：如传入 sourceImages 数组，保留 sourceImage 但优先由 provider 读取 sourceImages 顺序
+
   return await aiService.generate(request, options);
 }
 

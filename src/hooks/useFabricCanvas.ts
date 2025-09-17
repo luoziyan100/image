@@ -239,6 +239,169 @@ export function useFabricCanvas(options: UseFabricCanvasOptions) {
     return hasContent;
   }, []);
 
+  // === 导出工具：姿态PNG（透明）与遮罩PNG（黑白） ===
+  const exportPoseImage = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !isInitializedRef.current) return null as string | null;
+
+    // 记录状态
+    const originalBg = canvas.backgroundColor as string | undefined;
+    const objs = canvas.getObjects();
+    const imageObjs: fabric.FabricObject[] = [];
+    objs.forEach(o => { if ((o as any).type === 'image') imageObjs.push(o); });
+
+    // 隐藏图片，仅保留线条/路径；背景设透明
+    imageObjs.forEach(o => o.set('visible', false));
+    canvas.backgroundColor = 'rgba(0,0,0,0)';
+    canvas.renderAll();
+
+    const dataURL = canvas.toDataURL({ format: 'png' });
+
+    // 还原
+    imageObjs.forEach(o => o.set('visible', true));
+    canvas.backgroundColor = originalBg || '#ffffff';
+    canvas.renderAll();
+
+    return dataURL;
+  }, []);
+
+  const exportMaskImage = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !isInitializedRef.current) return null as string | null;
+
+    // 记录状态
+    const originalBg = canvas.backgroundColor as string | undefined;
+    const objs = canvas.getObjects();
+    const imageObjs: fabric.FabricObject[] = [];
+    const nonImageObjs: fabric.FabricObject[] = [];
+    const backupStyles = new Map<fabric.FabricObject, any>();
+    objs.forEach(o => {
+      if ((o as any).type === 'image') imageObjs.push(o);
+      else nonImageObjs.push(o);
+    });
+
+    // 隐藏图片；把其余路径/形状改为白色；背景设黑色
+    imageObjs.forEach(o => o.set('visible', false));
+    nonImageObjs.forEach(o => {
+      backupStyles.set(o, {
+        stroke: (o as any).stroke,
+        fill: (o as any).fill,
+        opacity: (o as any).opacity
+      });
+      (o as any).stroke = '#ffffff';
+      if ((o as any).fill) (o as any).fill = '#ffffff';
+      (o as any).opacity = 1;
+    });
+    canvas.backgroundColor = '#000000';
+    canvas.renderAll();
+
+    const dataURL = canvas.toDataURL({ format: 'png' });
+
+    // 还原
+    nonImageObjs.forEach(o => {
+      const b = backupStyles.get(o) || {};
+      (o as any).stroke = b.stroke;
+      (o as any).fill = b.fill;
+      (o as any).opacity = b.opacity;
+    });
+    imageObjs.forEach(o => o.set('visible', true));
+    canvas.backgroundColor = originalBg || '#ffffff';
+    canvas.renderAll();
+
+    return dataURL;
+  }, []);
+
+  // === 图层/对象管理（针对图片对象） ===
+  const listImageLayers = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !isInitializedRef.current) return [] as Array<{
+      id: string; name: string; visible: boolean; locked: boolean; zIndex: number;
+    }>;
+
+    const objects = canvas.getObjects();
+    return objects
+      .map((obj, index) => ({ obj, index }))
+      .filter(({ obj }) => (obj as any).type === 'image')
+      .map(({ obj, index }) => ({
+        id: (obj as any).layerId || `image_${index}`,
+        name: (obj as any).layerName || '图片图层',
+        visible: obj.visible ?? true,
+        locked: !!(obj as any).lockMovementX || !!(obj as any).lockMovementY,
+        zIndex: index,
+      }));
+  }, []);
+
+  const findImageById = (id: string) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !isInitializedRef.current) return null as fabric.FabricImage | null;
+    const objects = canvas.getObjects();
+    for (const obj of objects) {
+      if (((obj as any).type === 'image') && ((obj as any).layerId === id)) {
+        return obj as fabric.FabricImage;
+      }
+    }
+    return null;
+  };
+
+  const setLayerVisibility = useCallback((id: string, visible: boolean) => {
+    const img = findImageById(id);
+    if (!img) return;
+    img.set('visible', visible);
+    fabricCanvasRef.current?.renderAll();
+  }, []);
+
+  const setLayerLocked = useCallback((id: string, locked: boolean) => {
+    const img = findImageById(id);
+    if (!img) return;
+    (img as any).lockMovementX = locked;
+    (img as any).lockMovementY = locked;
+    (img as any).selectable = !locked;
+    (img as any).evented = !locked;
+    fabricCanvasRef.current?.renderAll();
+  }, []);
+
+  const removeLayer = useCallback((id: string) => {
+    const img = findImageById(id);
+    if (!img) return;
+    fabricCanvasRef.current?.remove(img);
+    fabricCanvasRef.current?.renderAll();
+  }, []);
+
+  const bringForward = useCallback((id: string) => {
+    const img = findImageById(id);
+    if (!img) return;
+    fabricCanvasRef.current?.bringForward(img);
+    fabricCanvasRef.current?.renderAll();
+  }, []);
+
+  const sendBackwards = useCallback((id: string) => {
+    const img = findImageById(id);
+    if (!img) return;
+    fabricCanvasRef.current?.sendBackwards(img);
+    fabricCanvasRef.current?.renderAll();
+  }, []);
+
+  const bringToFront = useCallback((id: string) => {
+    const img = findImageById(id);
+    if (!img) return;
+    fabricCanvasRef.current?.bringToFront(img);
+    fabricCanvasRef.current?.renderAll();
+  }, []);
+
+  const sendToBack = useCallback((id: string) => {
+    const img = findImageById(id);
+    if (!img) return;
+    fabricCanvasRef.current?.sendToBack(img);
+    fabricCanvasRef.current?.renderAll();
+  }, []);
+
+  const selectLayer = useCallback((id: string) => {
+    const img = findImageById(id);
+    if (!img) return;
+    fabricCanvasRef.current?.setActiveObject(img);
+    fabricCanvasRef.current?.renderAll();
+  }, []);
+
   // 加载画布数据
   const loadCanvasData = useCallback((data: string | object) => {
     const canvas = fabricCanvasRef.current;
@@ -246,6 +409,44 @@ export function useFabricCanvas(options: UseFabricCanvasOptions) {
 
     canvas.loadFromJSON(data, () => {
       canvas.renderAll();
+    });
+  }, []);
+
+  // 加载图片作为对象（图层）
+  const loadImageAsObject = useCallback((imageUrl: string) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !isInitializedRef.current) return;
+
+    fabric.FabricImage.fromURL(imageUrl, {
+      crossOrigin: 'anonymous'
+    }).then((img) => {
+      const cW = canvas.getWidth();
+      const cH = canvas.getHeight();
+      const iW = img.width || 1;
+      const iH = img.height || 1;
+
+      // 适当缩放：不超过画布的 75%
+      const scale = Math.min((cW / iW) * 0.75, (cH / iH) * 0.75, 1);
+      img.scale(scale);
+
+      // 居中放置
+      img.set({
+        left: (cW - (img.width || 0) * (img.scaleX || 1)) / 2,
+        top: (cH - (img.height || 0) * (img.scaleY || 1)) / 2,
+      });
+
+      // 分配图层元数据，便于图层面板管理
+      (img as any).layerId = `layer_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      (img as any).layerName = '图片图层';
+
+      canvas.add(img);
+      canvas.setActiveObject(img);
+      canvas.renderAll();
+
+      // 告知外部“对象已添加”，便于刷新层列表/导出
+      onObjectAddedRef.current?.(img);
+    }).catch((error) => {
+      console.error('加载图片对象失败:', error);
     });
   }, []);
 
@@ -259,6 +460,23 @@ export function useFabricCanvas(options: UseFabricCanvasOptions) {
     getCanvasData,
     getCanvasImage,
     hasCanvasContent,
-    loadCanvasData
+    loadCanvasData,
+    // 新：对象方式加载（推荐）
+    loadImageAsObject,
+    // 兼容别名：保持旧名称但行为等同于对象加载
+    loadImageAsBackground: loadImageAsObject,
+    // 图层工具
+    listImageLayers,
+    setLayerVisibility,
+    setLayerLocked,
+    removeLayer,
+    bringForward,
+    sendBackwards,
+    bringToFront,
+    sendToBack,
+    selectLayer,
+    // 导出工具
+    exportPoseImage,
+    exportMaskImage
   };
 }

@@ -5,6 +5,7 @@ import { MainCanvasArea } from './MainCanvasArea';
 import { RightSidebar } from './RightSidebar';
 import { AIGenerationDemo } from './AIGenerationDemo';
 import { GenerationStatusPanel } from './GenerationStatusPanel';
+import { StickerStudio } from './StickerStudio';
 import { useAppStore } from '@/stores/app-store';
 
 export const CreationWorkspace: React.FC = () => {
@@ -12,8 +13,10 @@ export const CreationWorkspace: React.FC = () => {
     currentProject,
     canvasState,
     generationState,
+    uiState,
     actions
   } = useAppStore();
+  const isStickerWorkspace = uiState.activeWorkspace === 'sticker';
 
   const [hasCanvasContent, setHasCanvasContent] = useState(false);
   const [creationMessage, setCreationMessage] = useState('');
@@ -27,7 +30,7 @@ export const CreationWorkspace: React.FC = () => {
   }>>([]);
   const [lastAssetId, setLastAssetId] = useState<string | null>(null);
 
-  // Canvas引用，用于调用canvas方法
+  // Canvas引用，用于调用canvas方法（始终定义，避免 hook 顺序差异）
   const canvasRef = useRef<{
     loadImage: (imageUrl: string) => void;
     exportPoseImage: () => string | null;
@@ -213,6 +216,10 @@ export const CreationWorkspace: React.FC = () => {
   }, [actions]);
 
   // 现在应该总是有默认项目，但保留安全检查
+  if (isStickerWorkspace) {
+    return <StickerStudio />;
+  }
+
   if (!currentProject) {
     return (
       <div className="creation-workspace bg-gray-50 min-h-screen flex items-center justify-center">
@@ -229,7 +236,7 @@ export const CreationWorkspace: React.FC = () => {
         <div className="workspace-grid grid grid-cols-12 gap-3 min-h-[600px]">
           
           {/* 主画布区域 (50% 宽度) */}
-          <div className="canvas-area col-span-6">
+          <div className="canvas-area col-span-7">
             <MainCanvasArea
               ref={canvasRef}
               projectId={currentProject.id}
@@ -242,15 +249,8 @@ export const CreationWorkspace: React.FC = () => {
             />
           </div>
 
-          {/* 统一侧栏 (50% 宽度)：把AI生成测试与素材上传合并一栏 */}
-          <div className="sidebar-area col-span-6 space-y-3 max-h-[calc(100vh-140px)] overflow-y-auto pr-2">
-            <AIGenerationDemo 
-              canvasImageData={canvasImageData}
-              hasCanvasContent={hasCanvasContent}
-              uploadedImages={uploadedImages}
-              getPoseImage={getPoseImage}
-              getMaskImage={getMaskImage}
-            />
+          {/* 统一侧栏 (50% 宽度)：先显示素材上传，再显示AI生成测试 */}
+          <div className="sidebar-area col-span-5 space-y-3 max-h-[calc(100vh-140px)] overflow-y-auto pr-2">
             <RightSidebar
               projectId={currentProject.id}
               hasCanvasContent={hasCanvasContent}
@@ -262,6 +262,13 @@ export const CreationWorkspace: React.FC = () => {
               onStartGeneration={handleStartGeneration}
               onStopGeneration={handleStopGeneration}
               hideGenerateButton
+            />
+            <AIGenerationDemo 
+              canvasImageData={canvasImageData}
+              hasCanvasContent={hasCanvasContent}
+              uploadedImages={uploadedImages}
+              getPoseImage={getPoseImage}
+              getMaskImage={getMaskImage}
             />
             <GenerationStatusPanel assetId={lastAssetId} />
           </div>

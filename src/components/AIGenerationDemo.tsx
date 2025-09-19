@@ -199,13 +199,6 @@ export const AIGenerationDemo: React.FC<AIGenerationDemoProps> = ({
         </div>
       </div>
 
-      {/* 画布调试器 */}
-      <CanvasDebugger 
-        canvasImageData={canvasImageData}
-        hasCanvasContent={hasCanvasContent}
-        uploadedImages={uploadedImages}
-      />
-
       {/* 导出选项 */}
       <div className="mb-3 grid grid-cols-2 gap-2">
         <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -358,6 +351,14 @@ export const AIGenerationDemo: React.FC<AIGenerationDemoProps> = ({
           )}
         </div>
       )}
+
+      {/* 使用说明 */}
+      {/* 画布调试器（下移到提示词与按钮之后） */}
+      <CanvasDebugger 
+        canvasImageData={canvasImageData}
+        hasCanvasContent={hasCanvasContent}
+        uploadedImages={uploadedImages}
+      />
 
       {/* 使用说明 */}
       <div className="mt-6 pt-4 border-t border-gray-200">

@@ -25,6 +25,7 @@ interface AppState {
     showProjectGallery: boolean;
     notifications: Notification[];
     loading: boolean;
+    activeWorkspace: 'canvas' | 'sticker';
   };
   
   // 预算状态
@@ -57,6 +58,7 @@ interface AppState {
     toggleSidebar: () => void;
     toggleProjectGallery: () => void;
     setLoading: (loading: boolean) => void;
+    setActiveWorkspace: (workspace: 'canvas' | 'sticker') => void;
     
     // 预算操作
     setBudgetInfo: (info: BudgetInfo) => void;
@@ -94,7 +96,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     sidebarCollapsed: false,
     showProjectGallery: true,
     notifications: [],
-    loading: false
+    loading: false,
+    activeWorkspace: 'canvas'
   },
   
   budgetInfo: null,
@@ -198,6 +201,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
     setLoading: (loading) => set((state) => ({
       uiState: { ...state.uiState, loading }
+    })),
+    setActiveWorkspace: (workspace) => set((state) => ({
+      uiState: { ...state.uiState, activeWorkspace: workspace }
     })),
     
     // 预算操作

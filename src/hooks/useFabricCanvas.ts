@@ -255,7 +255,7 @@ export function useFabricCanvas(options: UseFabricCanvasOptions) {
     canvas.backgroundColor = 'rgba(0,0,0,0)';
     canvas.renderAll();
 
-    const dataURL = canvas.toDataURL({ format: 'png' });
+    const dataURL = canvas.toDataURL({ format: 'png',multiplier:1 });
 
     // 还原
     imageObjs.forEach(o => o.set('visible', true));
@@ -295,7 +295,7 @@ export function useFabricCanvas(options: UseFabricCanvasOptions) {
     canvas.backgroundColor = '#000000';
     canvas.renderAll();
 
-    const dataURL = canvas.toDataURL({ format: 'png' });
+    const dataURL = canvas.toDataURL({ format: 'png',multiplier:1 });
 
     // 还原
     nonImageObjs.forEach(o => {
@@ -384,7 +384,8 @@ export function useFabricCanvas(options: UseFabricCanvasOptions) {
   const bringToFront = useCallback((id: string) => {
     const img = findImageById(id);
     if (!img) return;
-    fabricCanvasRef.current?.bringToFront(img);
+    //fabricCanvasRef.current?.bringToFront(img);
+    (fabricCanvasRef.current as any)?.bringToFront(img);
     fabricCanvasRef.current?.renderAll();
   }, []);
 

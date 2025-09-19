@@ -65,8 +65,8 @@ export const MainCanvasArea = forwardRef<{
         <Canvas
           ref={canvasRef}
           projectId={projectId}
-          width={600}  // 主画布更大
-          height={520} // 拉长高度，更多绘制空间
+          width={680}
+          height={520}
           activeTool={activeTool}
           brushColor={brushColor}
           brushSize={brushSize}

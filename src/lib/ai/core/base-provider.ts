@@ -164,6 +164,10 @@ export abstract class BaseAIProvider {
     return `${this.getName()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  createRequestId(): string {
+    return this.generateRequestId();
+  }
+
   // 估算请求成本（用于UI显示）
   estimateCost(request: GenerationRequest): number {
     const capabilities = this.getCapabilities();

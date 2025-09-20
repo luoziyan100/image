@@ -1,7 +1,7 @@
 // 数据库初始化API
 // 仅用于开发环境快速搭建
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { withDatabase } from '@/lib/database-config';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -70,7 +70,7 @@ export async function POST() {
   }
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   try {
     // 检查数据库连接状态
     const status = await withDatabase(async (pg, mongo, redis) => {

@@ -1,5 +1,11 @@
 // API客户端封装
-import type { ApiResponse, User, Project, Asset, BudgetInfo } from '@/types';
+import type { ApiResponse, Project, Asset, BudgetInfo } from '@/types';
+
+interface AuthUser {
+  id: string;
+  email: string;
+  [key: string]: unknown;
+}
 
 class ApiClient {
   private baseUrl: string;
@@ -70,14 +76,14 @@ class ApiClient {
   }
 
   // 认证API
-  async login(email: string, password: string): Promise<ApiResponse<{ user: User; token: string }>> {
+  async login(email: string, password: string): Promise<ApiResponse<{ user: AuthUser; token: string }>> {
     return this.request('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
   }
 
-  async register(email: string, password: string): Promise<ApiResponse<{ user: User; token: string }>> {
+  async register(email: string, password: string): Promise<ApiResponse<{ user: AuthUser; token: string }>> {
     return this.request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
@@ -95,7 +101,7 @@ class ApiClient {
     return this.request('/api/projects');
   }
 
-  async createProject(data: { title: string; type: 'single' | 'comic' }): Promise<ApiResponse<Project>> {
+  async createProject(data: { title: string; type: Project['type']; description?: string }): Promise<ApiResponse<Project>> {
     return this.request('/api/projects', {
       method: 'POST',
       body: JSON.stringify(data),

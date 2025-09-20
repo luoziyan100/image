@@ -47,14 +47,14 @@ export class S3StorageService {
   }
   
   // 为不同类型内容设置不同的缓存策略
-  private getCacheControlForType(fileType: string): string {
-    const strategies = {
+  private getCacheControlForType(fileType: 'user-generated-image' | 'user-avatar' | 'temp-upload'): string {
+    const strategies: Record<typeof fileType, string> = {
       'user-generated-image': 'public, max-age=31536000, immutable', // 1年
       'user-avatar': 'public, max-age=86400', // 1天
       'temp-upload': 'private, max-age=3600'  // 1小时
     };
     
-    return strategies[fileType] || 'public, max-age=86400';
+    return strategies[fileType];
   }
   
   // 生成预签名URL（用于临时访问）

@@ -113,7 +113,7 @@ class NanoBananaService {
   }): Promise<GenerateImageResult> {
     const { projectId, frameIndex, prompt, previousFrameUrl, baseSeed } = params;
     
-    let imageData: string | null = null;
+    let imageData: string | undefined;
     let seed = baseSeed;
     
     if (frameIndex > 0 && previousFrameUrl) {
@@ -129,9 +129,8 @@ class NanoBananaService {
     
     return await this.generateImage({
       prompt: enhancedPrompt,
-      imageData,
-      seed,
-      mode: imageData ? 'image-to-image' : 'text-to-image'
+      ...(imageData ? { imageData, mode: 'image-to-image' as const } : { mode: 'text-to-image' as const }),
+      seed
     });
   }
   

@@ -311,7 +311,7 @@ export class CapabilityMapper {
   // 根据请求类型获取支持的提供商
   static getProvidersForRequestType(requestType: string): string[] {
     return Object.entries(PROVIDER_CAPABILITIES)
-      .filter(([_, capabilities]) => {
+      .filter(([, capabilities]) => {
         switch (requestType) {
           case 'text-to-image':
             return capabilities.textToImage;
@@ -386,7 +386,7 @@ export class CapabilityMapper {
   // 获取支持特定样式的提供商
   static getProvidersForStyle(style: StylePreset): string[] {
     return Object.entries(PROVIDER_CAPABILITIES)
-      .filter(([_, capabilities]) => 
+      .filter(([, capabilities]) => 
         capabilities.supportedStyles?.includes(style) || !capabilities.supportedStyles
       )
       .map(([providerId]) => providerId);
@@ -395,7 +395,7 @@ export class CapabilityMapper {
   // 获取支持特定质量级别的提供商
   static getProvidersForQuality(quality: GenerationQuality): string[] {
     return Object.entries(PROVIDER_CAPABILITIES)
-      .filter(([_, capabilities]) => 
+      .filter(([, capabilities]) => 
         capabilities.supportedQualities.includes(quality)
       )
       .map(([providerId]) => providerId);

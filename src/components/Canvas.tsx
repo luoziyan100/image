@@ -7,7 +7,6 @@ import { Button } from './ui/Button';
 import { useFabricCanvas } from '@/hooks/useFabricCanvas';
 
 interface CanvasProps {
-  projectId?: string;
   width: number;
   height: number;
   activeTool: 'draw' | 'erase' | 'upload' | 'select';
@@ -29,7 +28,6 @@ const CanvasComponent = forwardRef<{
   exportPoseImage: () => string | null;
   exportMaskImage: () => string | null;
 }, CanvasProps>(({ 
-  projectId: _,
   width,
   height,
   activeTool,
@@ -52,9 +50,6 @@ const CanvasComponent = forwardRef<{
     setSelectMode,
     clearCanvas,
     getCanvasImage,
-    hasCanvasContent,
-    // 使用对象方式加载，避免背景覆盖
-    loadImageAsObject,
     // 图层工具
     listImageLayers,
     setLayerVisibility,

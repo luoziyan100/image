@@ -11,7 +11,7 @@ import {
   GenerationEvent,
   RequestContext
 } from '../core/types';
-import { BaseAIProvider, ProviderRegistry } from '../core/base-provider';
+import { ProviderRegistry } from '../core/base-provider';
 import { apiKeyManager } from './api-key-manager';
 import { providerSelector } from './provider-selector';
 

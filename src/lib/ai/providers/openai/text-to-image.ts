@@ -38,7 +38,7 @@ export class OpenAITextToImageProvider {
   constructor(private provider: BaseAIProvider) {}
 
   async generateImage(request: TextToImageRequest, apiKey: string): Promise<GenerationResult> {
-    const requestId = this.provider.generateRequestId();
+    const requestId = this.provider.createRequestId();
     
     try {
       // 验证请求

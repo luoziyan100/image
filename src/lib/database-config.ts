@@ -2,7 +2,7 @@
 // 基于技术架构文档的实现
 
 import { Pool } from 'pg';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import Redis from 'ioredis';
 
 interface FabricJson {
@@ -65,7 +65,6 @@ let redisClient: Redis | null = null;
 export function getRedisClient(): Redis {
   if (!redisClient) {
     redisClient = new Redis(process.env.REDIS_URL!, {
-      retryDelayOnFailover: 100,
       enableReadyCheck: false,
       maxRetriesPerRequest: 1,
     });
@@ -89,6 +88,7 @@ export async function withDatabase<T>(
   try {
     return await operation(pg, mongo, redis);
   } catch (error) {
+    console.error('Project saga failed, performing compensating actions:', error);
     console.error('Database operation failed:', error);
     throw error;
   }
@@ -105,15 +105,17 @@ export async function createProjectSaga(projectData: ProjectCreationData, userId
     projectId = project.id;
     
     // Step 2: MongoDB 事务
-    const sketch = await createSketchInMongo(projectData.initialSketch, userId, projectId);
+    const persistedProjectId = project.id;
+    const sketch = await createSketchInMongo(projectData.initialSketch, userId, persistedProjectId);
     sketchId = sketch._id;
     
     // Step 3: 状态标记为active（两个数据库都成功）
-    await updateProjectStatus(projectId, 'draft');
+    await updateProjectStatus(persistedProjectId, 'draft');
     
     return { success: true, project, sketchId };
     
   } catch (error) {
+    console.error('Project saga failed, performing compensating actions:', error);
     // 补偿事务
     if (sketchId) {
       await deleteSketchInMongo(sketchId);
@@ -131,7 +133,7 @@ async function createProjectInPg(projectData: ProjectCreationData, userId: strin
   const pg = getPgPool();
   const result = await pg.query(
     'INSERT INTO projects (user_id, title, description, project_type, status) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-    [userId, projectData.title, projectData.description, projectData.type, 'draft']
+    [userId, projectData.title, projectData.description ?? null, projectData.type, 'draft']
   );
   return result.rows[0];
 }
@@ -158,7 +160,7 @@ async function createSketchInMongo(
   };
   
   const result = await sketches.insertOne(sketch);
-  return { ...sketch, _id: result.insertedId };
+  return { ...sketch, _id: result.insertedId.toString() };
 }
 
 async function updateProjectStatus(projectId: string, status: string) {
@@ -174,5 +176,5 @@ async function deleteProjectInPg(projectId: string) {
 async function deleteSketchInMongo(sketchId: string) {
   const mongo = await getMongoClient();
   const sketches = mongo.db().collection('sketches');
-  await sketches.deleteOne({ _id: sketchId });
+  await sketches.deleteOne({ _id: new ObjectId(sketchId) });
 }

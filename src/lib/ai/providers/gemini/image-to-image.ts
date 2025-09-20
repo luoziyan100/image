@@ -16,16 +16,6 @@ interface OpenAIEditResponse {
   }>;
 }
 
-// Chat模式响应类型
-interface ChatResponse {
-  choices: Array<{
-    message: {
-      role: string;
-      content: string;
-    };
-  }>;
-}
-
 // 谷歌原生格式响应类型
 interface GoogleNativeResponse {
   candidates: Array<{
@@ -55,7 +45,7 @@ export class GeminiImageToImageProvider {
   constructor(private provider: BaseAIProvider) {}
 
   async transformImage(request: ImageToImageRequest, apiKey: string): Promise<GenerationResult> {
-    const requestId = this.provider.generateRequestId();
+    const requestId = this.provider.createRequestId();
     
     console.log('🤖 Gemini图生图 - 开始处理请求:', {
       requestId,
@@ -542,7 +532,7 @@ export class GeminiImageToImageProvider {
                 if (parsed.choices?.[0]?.delta?.content) {
                   fullContent += parsed.choices[0].delta.content;
                 }
-              } catch (e) {
+              } catch {
                 // 忽略JSON解析错误
               }
             }

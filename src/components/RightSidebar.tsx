@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { cn } from '@/utils/cn';
 import { ImageUploadSection } from './ImageUploadSection';
-import { CreationChat } from './CreationChat';
 import { GenerateButton } from './GenerateButton';
 
 interface UploadedImage {
@@ -15,7 +14,6 @@ interface UploadedImage {
 }
 
 interface RightSidebarProps {
-  projectId: string;
   hasCanvasContent: boolean;
   isGenerating: boolean;
   creationMessage: string;
@@ -29,7 +27,6 @@ interface RightSidebarProps {
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
-  projectId,
   hasCanvasContent,
   isGenerating,
   creationMessage,
@@ -41,7 +38,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   className,
   hideGenerateButton = false
 }) => {
-  const [prompt, setPrompt] = useState('将这个手绘草图转换为精美的专业艺术作品');
   const [folded, setFolded] = useState<boolean>(true);
   
   return (

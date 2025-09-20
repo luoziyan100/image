@@ -34,21 +34,11 @@ interface GoogleNativeResponse {
   };
 }
 
-// Chat格式响应类型
-interface ChatResponse {
-  choices: Array<{
-    message: {
-      role: string;
-      content: string;
-    };
-  }>;
-}
-
 export class GeminiTextToImageProvider {
   constructor(private provider: BaseAIProvider) {}
 
   async generateImage(request: TextToImageRequest, apiKey: string): Promise<GenerationResult> {
-    const requestId = this.provider.generateRequestId();
+    const requestId = this.provider.createRequestId();
     
     try {
       // 验证请求
@@ -297,7 +287,7 @@ export class GeminiTextToImageProvider {
                 if (parsed.choices?.[0]?.delta?.content) {
                   fullContent += parsed.choices[0].delta.content;
                 }
-              } catch (e) {
+              } catch {
                 // 忽略JSON解析错误
               }
             }

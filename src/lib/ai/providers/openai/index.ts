@@ -4,8 +4,7 @@ import {
   GenerationRequest, 
   GenerationResult, 
   ProviderCapabilities,
-  ApiKeyValidationResult,
-  TextToImageRequest
+  ApiKeyValidationResult
 } from '../../core/types';
 import { OPENAI_CONFIG, OPENAI_API } from './config';
 import { OpenAITextToImageProvider } from './text-to-image';
@@ -97,12 +96,11 @@ export class OpenAIProvider extends BaseAIProvider {
     }
 
     // 根据请求类型路由到相应的处理器
-    switch (request.type) {
+    const requestType = request.type;
+
+    switch (requestType) {
       case 'text-to-image':
-        return await this.textToImageProvider.generateImage(
-          request as TextToImageRequest,
-          this.apiKey
-        );
+        return this.textToImageProvider.generateImage(request, this.apiKey);
 
       case 'image-to-image':
         throw new Error('Image-to-image not supported by OpenAI provider');
@@ -112,8 +110,10 @@ export class OpenAIProvider extends BaseAIProvider {
 
       case 'image-to-video':
         throw new Error('Image-to-video not supported by OpenAI provider');
+
+      default:
+        throw new Error(`Unsupported request type: ${requestType}`);
     }
-    throw new Error(`Unsupported request type: ${request.type}`);
   }
 
   // 获取账户信息
@@ -158,9 +158,13 @@ export class OpenAIProvider extends BaseAIProvider {
 
       if (response.ok) {
         const data = await response.json() as OpenAIModelResponse;
-        return data.data
-          ?.filter((model): model is OpenAIModelInfo => typeof model.id === 'string' && model.id.includes('dall-e'))
-          .map(model => model.id) || [];
+        const models = (data.data ?? []).filter(
+          (model): model is OpenAIModelInfo & { id: string } => typeof model.id === 'string'
+        );
+
+        return models
+          .filter(model => model.id.includes('dall-e'))
+          .map(model => model.id);
       }
 
       return [];

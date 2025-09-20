@@ -5,7 +5,6 @@ import { cn } from '@/utils/cn';
 import { Canvas } from './Canvas';
 
 interface MainCanvasAreaProps {
-  projectId: string;
   activeTool: 'draw' | 'erase' | 'upload' | 'select';
   brushColor: string;
   brushSize: number;
@@ -20,7 +19,6 @@ export const MainCanvasArea = forwardRef<{
   exportPoseImage: () => string | null;
   exportMaskImage: () => string | null;
 }, MainCanvasAreaProps>(({ 
-  projectId,
   activeTool,
   brushColor,
   brushSize,

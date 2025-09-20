@@ -56,6 +56,7 @@ export class ContentModerationService {
   private async mockAuditService(imageBuffer: Buffer): Promise<ContentAuditResult> {
     // 模拟审核延迟
     await new Promise(resolve => setTimeout(resolve, 500));
+    console.debug('Mock moderation received buffer length:', imageBuffer.length);
     
     // 模拟审核结果（大部分内容通过）
     const shouldPass = Math.random() > 0.05; // 95%通过率
@@ -110,7 +111,7 @@ export class AuditedImageGeneration {
     sketchData: { imageBuffer: Buffer; prompt: string };
     userId: string;
   }) {
-    const { assetId, sketchData, userId } = params;
+    const { assetId, sketchData } = params;
     
     // === 输入审核 ===
     await updateAssetStatus(assetId, 'auditing_input');

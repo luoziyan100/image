@@ -58,7 +58,7 @@ export class ApiKeyManager {
       provider,
       keyName,
       encryptedKey: SimpleEncryption.encrypt(apiKey),
-      capabilities: await this.detectCapabilities(provider, apiKey),
+      capabilities: await this.detectCapabilities(provider),
       isActive: true,
       addedAt: new Date().toISOString(),
       lastValidated: new Date().toISOString(),
@@ -300,7 +300,7 @@ export class ApiKeyManager {
     return `${provider}_${keyName}_${Date.now()}`;
   }
 
-  private async detectCapabilities(provider: string, apiKey: string): Promise<string[]> {
+  private async detectCapabilities(provider: string): Promise<string[]> {
     const config = PROVIDER_CONFIGS[provider];
     if (!config) {
       return [];
@@ -357,7 +357,7 @@ export class ApiKeyManager {
       if (response.ok) {
         return {
           isValid: true,
-          capabilities: await this.detectCapabilities(provider, apiKey)
+          capabilities: await this.detectCapabilities(provider)
         };
       }
 

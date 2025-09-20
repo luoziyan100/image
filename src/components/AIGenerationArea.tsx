@@ -6,7 +6,6 @@ import { Button } from './ui/Button';
 import { useAppStore } from '@/stores/app-store';
 
 interface AIGenerationAreaProps {
-  projectId: string;
   hasCanvasContent: boolean;
   isGenerating: boolean;
   onStartGeneration: () => void;
@@ -15,7 +14,6 @@ interface AIGenerationAreaProps {
 }
 
 export const AIGenerationArea: React.FC<AIGenerationAreaProps> = ({
-  projectId,
   hasCanvasContent,
   isGenerating,
   onStartGeneration,
@@ -117,6 +115,7 @@ export const AIGenerationArea: React.FC<AIGenerationAreaProps> = ({
         type: 'error',
         message: '生成失败，请重试'
       });
+      console.error('AI生成失败:', error);
     } finally {
       onStopGeneration();
     }

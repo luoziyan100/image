@@ -69,11 +69,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   // 初始状态
   currentProject: {
     id: 'default-project',
-    name: '默认项目',
-    type: 'single-image',
+    title: '默认项目',
+    description: '默认创作项目',
+    type: 'single_image',
+    status: 'draft',
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    description: '默认创作项目'
+    updatedAt: new Date().toISOString()
   },
   projectsList: [],
   

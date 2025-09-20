@@ -27,7 +27,6 @@ export const APIKeySettings: React.FC = () => {
   });
   
   const [status, setStatus] = useState<StatusMessage | null>(null);
-  const [, setIsLoading] = useState(false);
   const [availableProviders, setAvailableProviders] = useState<string[]>([]);
 
   // 获取所有提供商配置
@@ -130,32 +129,6 @@ export const APIKeySettings: React.FC = () => {
       });
     } finally {
       updateProviderKey(providerId, 'isValidating', false);
-    }
-  };
-
-  // 保存所有配置
-  const handleSaveAll = async () => {
-    setIsLoading(true);
-    setStatus(null);
-
-    try {
-      const validationPromises = Object.entries(providerKeys)
-        .filter(([, state]) => state.key.trim())
-        .map(([providerId]) => validateProviderKey(providerId));
-
-      await Promise.all(validationPromises);
-
-      setStatus({
-        type: 'success',
-        message: '所有API密钥配置完成！'
-      });
-    } catch (error) {
-      setStatus({
-        type: 'error',
-        message: '配置过程中出现错误'
-      });
-    } finally {
-      setIsLoading(false);
     }
   };
 

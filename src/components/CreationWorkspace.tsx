@@ -120,6 +120,15 @@ export const CreationWorkspace: React.FC = () => {
       return;
     }
 
+    if (!currentProject) {
+      actions.showNotification({
+        type: 'info',
+        message: '请先选择或创建一个项目，再开始创作哦！',
+        autoHide: true
+      });
+      return;
+    }
+
     actions.setGenerating(true);
     
     // 情感化的等待体验 - 3个阶段
@@ -195,7 +204,7 @@ export const CreationWorkspace: React.FC = () => {
       const randomEncouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
       
       actions.showNotification({
-        type: 'warning', // 改为warning而不是error，更温和
+        type: 'info',
         message: randomEncouragement,
         autoHide: true
       });
@@ -221,6 +230,10 @@ export const CreationWorkspace: React.FC = () => {
   }
 
   if (!currentProject) {
+    return null;
+  }
+
+  if (!currentProject) {
     return (
       <div className="creation-workspace bg-gray-50 min-h-screen flex items-center justify-center">
         <div className="text-gray-500">初始化项目中...</div>
@@ -239,7 +252,6 @@ export const CreationWorkspace: React.FC = () => {
           <div className="canvas-area col-span-7">
             <MainCanvasArea
               ref={canvasRef}
-              projectId={currentProject.id}
               activeTool={canvasState.activeTool}
               brushColor={canvasState.brushColor}
               brushSize={canvasState.brushSize}
@@ -252,7 +264,6 @@ export const CreationWorkspace: React.FC = () => {
           {/* 统一侧栏 (50% 宽度)：先显示素材上传，再显示AI生成测试 */}
           <div className="sidebar-area col-span-5 space-y-3 max-h-[calc(100vh-140px)] overflow-y-auto pr-2">
             <RightSidebar
-              projectId={currentProject.id}
               hasCanvasContent={hasCanvasContent}
               isGenerating={generationState.isGenerating}
               creationMessage={creationMessage}

@@ -2,7 +2,7 @@
 // 基于技术架构文档的实现
 
 import { withDatabase } from './database-config';
-import type { Asset, BillingEvent, ApiResponse } from '@/types';
+import type { Asset, ApiResponse } from '@/types';
 
 // 更新资源状态
 export async function updateAssetStatus(
@@ -12,7 +12,7 @@ export async function updateAssetStatus(
 ): Promise<void> {
   await withDatabase(async (pg) => {
     const updateFields = ['status = $2', 'updated_at = NOW()'];
-    const values = [assetId, status];
+    const values: Array<string | number | boolean | null> = [assetId, status];
     let paramIndex = 3;
     
     // 动态添加额外字段
@@ -142,8 +142,6 @@ export async function getUserMonthlyUsage(userId: string): Promise<{
   remainingBudget: number;
 }> {
   return await withDatabase(async (pg) => {
-    const currentMonth = new Date().toISOString().slice(0, 7); // "2025-08"
-    
     const result = await pg.query(`
       SELECT 
         COALESCE(SUM(be.cost_cents), 0) as total_cost_cents,

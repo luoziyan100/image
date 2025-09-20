@@ -11,7 +11,7 @@ import type { GenerationJobData } from '@/types';
 export async function POST(req: NextRequest) {
   try {
     // 预算检查
-    const budgetCheck = await budgetMiddleware(req);
+    const budgetCheck = await budgetMiddleware();
     if (budgetCheck) {
       return budgetCheck; // 预算限制，直接返回错误响应
     }

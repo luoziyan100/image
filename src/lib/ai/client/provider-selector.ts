@@ -176,7 +176,7 @@ export class ProviderSelector {
   }
 
   // 获取提供商对比信息
-  getProviderComparison(providerIds: string[], requestType: string): {
+  getProviderComparison(providerIds: string[]): {
     provider: string;
     config: ProviderConfig;
     features: string[];
@@ -235,7 +235,7 @@ export class ProviderSelector {
     // 进一步筛选和评分
     const scoredProviders = sortedProviders.map(providerId => ({
       providerId,
-      score: this.calculateProviderScore(providerId, request, options)
+      score: this.calculateProviderScore(providerId, request)
     }));
 
     // 按评分排序
@@ -246,8 +246,7 @@ export class ProviderSelector {
 
   private calculateProviderScore(
     providerId: string, 
-    request: GenerationRequest,
-    options?: GenerationOptions
+    request: GenerationRequest
   ): number {
     let score = 0;
     const capabilities = CapabilityMapper.getProviderCapabilities(providerId);

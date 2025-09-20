@@ -18,7 +18,7 @@ interface GenerationJobResult {
 // 队列定义
 const redisConnection = getRedisClient();
 
-export const imageQueue = new Queue('image-generation', {
+export const imageQueue = new Queue<GenerationJobData, GenerationJobResult, string>('image-generation', {
   connection: redisConnection,
   defaultJobOptions: {
     attempts: 5,
@@ -57,7 +57,8 @@ async function workerProcessor(job: Job<GenerationJobData>): Promise<GenerationJ
     // Step 1: 输入内容审核
     const inputAuditResult = await auditContent(sketchData.imageBuffer);
     if (!inputAuditResult.passed) {
-      throw new Error(`INPUT_REJECTED: ${inputAuditResult.reason}`);
+      const inputReason = formatModerationReason(inputAuditResult);
+      throw new Error(`INPUT_REJECTED: ${inputReason}`);
     }
     
     // 更新状态: auditing_input -> generating  
@@ -72,7 +73,8 @@ async function workerProcessor(job: Job<GenerationJobData>): Promise<GenerationJ
     // Step 3: 输出内容审核
     const outputAuditResult = await auditContent(generationResult.imageBuffer);
     if (!outputAuditResult.passed) {
-      throw new Error(`OUTPUT_REJECTED: ${outputAuditResult.reason}`);
+      const outputReason = formatModerationReason(outputAuditResult);
+      throw new Error(`OUTPUT_REJECTED: ${outputReason}`);
     }
     
     // 更新状态: auditing_output -> uploading
@@ -83,10 +85,16 @@ async function workerProcessor(job: Job<GenerationJobData>): Promise<GenerationJ
     
     // Step 5: 更新最终状态
     await updateAssetStatus(assetId, 'completed', { 
-      storage_url: s3Url,
-      processing_time_ms: generationResult.processingTimeMs,
-      ai_model_version: generationResult.modelVersion,
-      generation_seed: generationResult.seed
+      storageUrl: s3Url,
+      ...(typeof generationResult.processingTimeMs === 'number'
+        ? { processingTimeMs: generationResult.processingTimeMs }
+        : {}),
+      ...(generationResult.modelVersion
+        ? { aiModelVersion: generationResult.modelVersion }
+        : {}),
+      ...(typeof generationResult.seed === 'number'
+        ? { generationSeed: generationResult.seed }
+        : {})
     });
     
     // Step 6: 记录成本事件
@@ -105,8 +113,8 @@ async function workerProcessor(job: Job<GenerationJobData>): Promise<GenerationJ
     console.error(`❌ 图片生成失败: ${assetId}`, error);
     
     await updateAssetStatus(assetId, 'failed', {
-      error_message: error instanceof Error ? error.message : 'Unknown error',
-      error_code: error instanceof Error ? error.message.split(':')[0] : 'UNKNOWN_ERROR'
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      errorCode: error instanceof Error ? error.message.split(':')[0] : 'UNKNOWN_ERROR'
     });
     
     throw error;
@@ -126,7 +134,7 @@ export function startImageGenerationWorker(options?: { concurrency?: number }) {
 
   // Worker 事件监听
   imageGenerationWorker.on('completed', (job, result) => {
-    console.log(`🎉 Worker完成任务: ${job.id}`);
+    console.log(`🎉 Worker完成任务: ${job.id}`, result);
   });
   
   imageGenerationWorker.on('failed', (job, error) => {
@@ -209,21 +217,20 @@ export class QueueManager {
   }
 }
 
-// 队列事件监听
-imageQueue.on('completed', (job, result) => {
-  console.log(`✅ 任务完成: ${job.id}`, result);
-});
-
-imageQueue.on('failed', (job, error) => {
-  console.error(`❌ 任务失败: ${job?.id}`, error);
-});
-
-imageQueue.on('progress', (job, progress) => {
-  console.log(`📊 任务进度: ${job.id} - ${progress}%`);
-});
-
-// Worker 事件监听
 // 如果显式启用，则在当前进程启动 Worker（用于本地独立进程或显式启用场景）
 if (WORKER_ENABLED) {
   startImageGenerationWorker();
+}
+
+function formatModerationReason(result: {
+  violations?: Array<{ category: string; detected: string; threshold?: string }>;
+  error?: string;
+  message?: string;
+}): string {
+  if (result.violations && result.violations.length > 0) {
+    return result.violations
+      .map(v => `${v.category}:${v.detected}`)
+      .join(', ');
+  }
+  return result.error || result.message || 'UNKNOWN_REASON';
 }

@@ -25,7 +25,6 @@ export function GenerationProgress({
   ]);
   
   const [estimatedTime, setEstimatedTime] = useState(30);
-  const [queuePosition, setQueuePosition] = useState(0);
   const [startTime] = useState(Date.now());
   
   // 状态轮询逻辑
@@ -117,9 +116,7 @@ export function GenerationProgress({
         <h2 className="text-2xl font-bold text-gray-800 mb-2">
           🚀 AI正在生成你的作品
         </h2>
-        <p className="text-gray-600">
-          预计剩余时间: {estimatedTime}秒 | 队列位置: {queuePosition + 1}/12
-        </p>
+        <p className="text-gray-600">预计剩余时间: {estimatedTime}秒</p>
       </div>
       
       {/* 步骤进度条 */}

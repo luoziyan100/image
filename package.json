@@ -1,7 +1,22 @@
 {
-  "name": "image2video-temp",
+  "name": "image2video",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "license": "MIT",
+  "description": "AI驱动的创意工具，支持手绘草图转换为精美艺术作品",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luoziyan100/image.git"
+  },
+  "keywords": [
+    "ai",
+    "image-generation",
+    "creative-tools",
+    "fabric.js",
+    "next.js",
+    "typescript"
+  ],
+  "author": "luoziyan100",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",

@@ -9,6 +9,12 @@ import { updateAssetStatus, recordBillingEvent } from './asset-service';
 import { uploadToS3 } from './s3-service';
 import type { GenerationJobData } from '@/types';
 
+interface GenerationJobResult {
+  success: boolean;
+  assetId: string;
+  storageUrl: string;
+}
+
 // 队列定义
 const redisConnection = getRedisClient();
 
@@ -37,9 +43,9 @@ export const JOB_TYPES = {
 const WORKER_ENABLED = process.env.ENABLE_QUEUE_WORKER === 'true';
 
 // Worker 进程实例（默认不在导入时启动，避免在Next服务进程内重复消费）
-export let imageGenerationWorker: Worker | null = null;
+export let imageGenerationWorker: Worker<GenerationJobData, GenerationJobResult> | null = null;
 
-async function workerProcessor(job: Job<GenerationJobData>) {
+async function workerProcessor(job: Job<GenerationJobData>): Promise<GenerationJobResult> {
   const { assetId, sketchData, userId } = job.data;
   
   try {
@@ -112,7 +118,7 @@ export function startImageGenerationWorker(options?: { concurrency?: number }) {
     console.log('ℹ️ Worker already started');
     return imageGenerationWorker;
   }
-  imageGenerationWorker = new Worker('image-generation', workerProcessor as any, {
+  imageGenerationWorker = new Worker<GenerationJobData, GenerationJobResult>('image-generation', workerProcessor, {
     connection: redisConnection,
     concurrency: options?.concurrency ?? 3,
     limiter: { max: 5, duration: 60000 }

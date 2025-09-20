@@ -70,7 +70,7 @@ export async function POST() {
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     // 检查数据库连接状态
     const status = await withDatabase(async (pg, mongo, redis) => {

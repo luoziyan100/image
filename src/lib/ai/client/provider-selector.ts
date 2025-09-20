@@ -5,7 +5,7 @@ import {
   GenerationRequest, 
   GenerationOptions, 
   ProviderConfig,
-  UserApiKeyConfig 
+  ProviderCapabilities
 } from '../core/types';
 import { CapabilityMapper } from '../core/capability-mapper';
 import { apiKeyManager } from './api-key-manager';
@@ -24,6 +24,25 @@ export interface ProviderRecommendation {
   reasons: string[];
   cost: number;
   capabilities: string[];
+}
+
+type CapabilityKey = Extract<
+  keyof ProviderCapabilities,
+  'textToImage' | 'imageToImage' | 'textToVideo' | 'imageToVideo'
+>;
+
+function mapRequestTypeToCapability(requestType: GenerationRequest['type']): CapabilityKey {
+  switch (requestType) {
+    case 'text-to-image':
+      return 'textToImage';
+    case 'image-to-image':
+      return 'imageToImage';
+    case 'text-to-video':
+      return 'textToVideo';
+    case 'image-to-video':
+      return 'imageToVideo';
+  }
+  throw new Error(`Unsupported request type: ${requestType}`);
 }
 
 export class ProviderSelector {
@@ -109,7 +128,8 @@ export class ProviderSelector {
     const issues: string[] = [];
     
     // 检查基本支持
-    if (!CapabilityMapper.supportsFeature(providerId, request.type as any)) {
+    const capabilityKey = mapRequestTypeToCapability(request.type);
+    if (!CapabilityMapper.supportsFeature(providerId, capabilityKey)) {
       issues.push(`Does not support ${request.type}`);
     }
 
@@ -210,7 +230,7 @@ export class ProviderSelector {
 
     // 根据优先级排序
     const priority = options?.priority || 'quality';
-    let sortedProviders = CapabilityMapper.sortProvidersByPriority(availableProviders, priority);
+    const sortedProviders = CapabilityMapper.sortProvidersByPriority(availableProviders, priority);
 
     // 进一步筛选和评分
     const scoredProviders = sortedProviders.map(providerId => ({
@@ -235,7 +255,8 @@ export class ProviderSelector {
     if (!capabilities) return 0;
 
     // 基础功能支持 (40分)
-    if (CapabilityMapper.supportsFeature(providerId, request.type as any)) {
+    const capabilityKey = mapRequestTypeToCapability(request.type);
+    if (CapabilityMapper.supportsFeature(providerId, capabilityKey)) {
       score += 40;
     }
 
@@ -362,7 +383,9 @@ export class ProviderSelector {
     return Math.round(time);
   }
 
-  private describePricing(estimatedCost?: any): string {
+  private describePricing(
+    estimatedCost?: ProviderCapabilities['estimatedCost']
+  ): string {
     if (!estimatedCost) return '价格未知';
     
     const imagePrice = estimatedCost.textToImage || 0;
@@ -373,7 +396,9 @@ export class ProviderSelector {
     return '较贵';
   }
 
-  private describeSpeed(rateLimit?: any): string {
+  private describeSpeed(
+    rateLimit?: ProviderCapabilities['rateLimit']
+  ): string {
     if (!rateLimit) return '速度未知';
     
     const rpm = rateLimit.requestsPerMinute || 1;

@@ -35,7 +35,7 @@ export interface SketchData {
   projectId: string;
   fabricJson: {
     version: string;
-    objects: any[];
+    objects: unknown[];
     background: string;
   };
   metadata: {
@@ -123,7 +123,7 @@ export interface BillingEvent {
 }
 
 // API响应类型
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -137,6 +137,7 @@ export interface GenerationJobData {
     imageBuffer: Buffer;
     prompt: string;
   };
+  userId: string;
   options?: {
     quality?: 'standard' | 'high';
     seed?: number;

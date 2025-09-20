@@ -19,6 +19,11 @@ interface CanvasProps {
   className?: string;
 }
 
+type LayeredFabricImage = fabric.FabricImage & {
+  layerId: string;
+  layerName: string;
+};
+
 const CanvasComponent = forwardRef<{
   loadImage: (imageUrl: string) => void;
   exportPoseImage: () => string | null;
@@ -122,8 +127,9 @@ const CanvasComponent = forwardRef<{
       });
       
       // 为图片设置自定义图层属性，便于管理
-      (img as any).layerId = `layer_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      (img as any).layerName = '图片图层';
+      const layeredImage = img as LayeredFabricImage;
+      layeredImage.layerId = `layer_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      layeredImage.layerName = '图片图层';
 
       fabricCanvas.add(img);
       fabricCanvas.setActiveObject(img);

@@ -8,7 +8,7 @@ interface ContentAuditResult {
     detected: string;
     threshold: string;
   }>;
-  rawResult?: any;
+  rawResult?: unknown;
   error?: string;
   message?: string;
 }
@@ -149,7 +149,11 @@ export async function auditContent(imageBuffer: Buffer): Promise<ContentAuditRes
 }
 
 // 辅助函数占位符
-async function updateAssetStatus(assetId: string, status: string, additionalData?: any) {
+async function updateAssetStatus(
+  assetId: string,
+  status: string,
+  additionalData?: Record<string, unknown>
+) {
   console.log(`📊 更新资源状态: ${assetId} -> ${status}`, additionalData);
   // TODO: 实现真实的数据库更新
 }

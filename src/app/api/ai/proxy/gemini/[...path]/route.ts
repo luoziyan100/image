@@ -27,8 +27,9 @@ async function forwardWithTimeout(input: RequestInfo, init: RequestInit, timeout
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { path?: string[] } }) {
-  const targetUrl = buildUpstreamUrl(params.path);
+export async function POST(req: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
+  const { path } = await context.params;
+  const targetUrl = buildUpstreamUrl(path);
 
   // 只保留必要头部：Authorization 与 Content-Type（FormData 由 fetch 自动设置）
   const auth = req.headers.get('authorization') || '';
@@ -39,11 +40,11 @@ export async function POST(req: NextRequest, { params }: { params: { path?: stri
     let upstreamRes: Response;
 
     if (requestContentType.startsWith('multipart/form-data')) {
-      const form = await req.formData();
+      const formData = await req.formData();
       upstreamRes = await forwardWithTimeout(targetUrl, {
         method: 'POST',
         headers: auth ? { Authorization: auth } : undefined,
-        body: form as any
+        body: formData
       }, timeout);
     } else {
       const bodyText = await req.text();
@@ -94,8 +95,9 @@ export async function POST(req: NextRequest, { params }: { params: { path?: stri
   }
 }
 
-export async function GET(req: NextRequest, { params }: { params: { path?: string[] } }) {
-  const targetUrl = buildUpstreamUrl(params.path);
+export async function GET(req: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
+  const { path } = await context.params;
+  const targetUrl = buildUpstreamUrl(path);
   const auth = req.headers.get('authorization') || '';
 
   try {

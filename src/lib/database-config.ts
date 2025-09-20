@@ -5,6 +5,19 @@ import { Pool } from 'pg';
 import { MongoClient } from 'mongodb';
 import Redis from 'ioredis';
 
+interface FabricJson {
+  version: string;
+  objects: unknown[];
+  background: string;
+}
+
+interface ProjectCreationData {
+  title: string;
+  description?: string;
+  type: string;
+  initialSketch?: FabricJson | null;
+}
+
 // PostgreSQL 连接池（模块作用域缓存）
 let pgPool: Pool | null = null;
 
@@ -82,7 +95,7 @@ export async function withDatabase<T>(
 }
 
 // Saga模式事务实现
-export async function createProjectSaga(projectData: any, userId: string) {
+export async function createProjectSaga(projectData: ProjectCreationData, userId: string) {
   let projectId: string | null = null;
   let sketchId: string | null = null;
   
@@ -114,7 +127,7 @@ export async function createProjectSaga(projectData: any, userId: string) {
 }
 
 // 辅助函数（占位符实现）
-async function createProjectInPg(projectData: any, userId: string) {
+async function createProjectInPg(projectData: ProjectCreationData, userId: string) {
   const pg = getPgPool();
   const result = await pg.query(
     'INSERT INTO projects (user_id, title, description, project_type, status) VALUES ($1, $2, $3, $4, $5) RETURNING *',
@@ -123,7 +136,11 @@ async function createProjectInPg(projectData: any, userId: string) {
   return result.rows[0];
 }
 
-async function createSketchInMongo(sketchData: any, userId: string, projectId: string) {
+async function createSketchInMongo(
+  sketchData: FabricJson | null | undefined,
+  userId: string,
+  projectId: string
+) {
   const mongo = await getMongoClient();
   const sketches = mongo.db().collection('sketches');
   

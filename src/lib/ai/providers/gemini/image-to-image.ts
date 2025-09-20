@@ -44,6 +44,13 @@ interface GoogleNativeResponse {
   };
 }
 
+interface GoogleInlinePart {
+  inline_data: {
+    mime_type: string;
+    data: string;
+  };
+}
+
 export class GeminiImageToImageProvider {
   constructor(private provider: BaseAIProvider) {}
 
@@ -83,7 +90,7 @@ export class GeminiImageToImageProvider {
         attempts.push(GeminiAPIMode.GOOGLE_NATIVE, GeminiAPIMode.OPENAI_EDIT, GeminiAPIMode.CHAT_COMPLETION);
       }
 
-      let lastError: any = null;
+      let lastError: unknown = null;
       for (const mode of attempts) {
         try {
           if (mode === GeminiAPIMode.OPENAI_EDIT) {
@@ -375,7 +382,7 @@ export class GeminiImageToImageProvider {
     const imgList: string[] = (request.sourceImages && request.sourceImages.length > 0)
       ? request.sourceImages
       : [request.sourceImage];
-    const parts: any[] = [];
+    const parts: GoogleInlinePart[] = [];
     for (const img of imgList) {
       const { mimeType, data } = await this.prepareGoogleImageData(img);
       parts.push({ inline_data: { mime_type: mimeType, data } });
@@ -715,7 +722,7 @@ export class GeminiImageToImageProvider {
   private createErrorResult(
     requestId: string, 
     request: ImageToImageRequest, 
-    error: any
+    error: unknown
   ): GenerationResult {
     return {
       id: requestId,
@@ -730,18 +737,36 @@ export class GeminiImageToImageProvider {
     };
   }
 
-  private getErrorCode(error: any): string {
-    if (error.code) return error.code;
-    if (error.message?.includes('401')) return 'AUTHENTICATION_ERROR';
-    if (error.message?.includes('429')) return 'RATE_LIMIT_EXCEEDED';
-    if (error.message?.includes('400')) return 'INVALID_REQUEST';
-    if (error.message?.includes('timeout')) return 'TIMEOUT';
-    if (error.message?.includes('413')) return 'PAYLOAD_TOO_LARGE';
-    if (error.message?.includes('415')) return 'UNSUPPORTED_MEDIA_TYPE';
+  private getErrorCode(error: unknown): string {
+    const errorRecord = isRecord(error) ? error : undefined;
+    const message = (typeof errorRecord?.message === 'string'
+      ? errorRecord.message
+      : error instanceof Error
+        ? error.message
+        : String(error)
+    ).toLowerCase();
+
+    if (typeof errorRecord?.code === 'string') return errorRecord.code;
+    if (message.includes('401')) return 'AUTHENTICATION_ERROR';
+    if (message.includes('429')) return 'RATE_LIMIT_EXCEEDED';
+    if (message.includes('400')) return 'INVALID_REQUEST';
+    if (message.includes('timeout')) return 'TIMEOUT';
+    if (message.includes('413')) return 'PAYLOAD_TOO_LARGE';
+    if (message.includes('415')) return 'UNSUPPORTED_MEDIA_TYPE';
     return 'UNKNOWN_ERROR';
   }
 
-  private getErrorMessage(error: any): string {
-    return error.message || error.toString() || 'Unknown error occurred';
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (isRecord(error) && typeof error.message === 'string') {
+      return error.message;
+    }
+    return String(error);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

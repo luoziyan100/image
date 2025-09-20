@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { aiService, type GenerationResult } from '@/lib/ai';
+import { aiService, type GenerationEvent, type GenerationResult } from '@/lib/ai';
+import type { ApiResponse, Asset } from '@/types';
 
 interface Props {
   assetId?: string | null; // server-queue path
@@ -18,22 +19,30 @@ export const GenerationStatusPanel: React.FC<Props> = ({ assetId, pollIntervalMs
     lastUpdated?: number;
   } | null>(null);
 
-  const [serverStatus, setServerStatus] = React.useState<any>(null);
+  const [serverStatus, setServerStatus] = React.useState<ApiResponse<Asset> | null>(null);
   const [serverError, setServerError] = React.useState<string | null>(null);
 
   // Listen to BYOK events if available
   React.useEffect(() => {
-    const listener = (evt: any) => {
-      // Expect evt to have type/status/provider fields (best-effort)
-      if (evt && (evt.type || evt.status)) {
-        setByokStatus({
-          requestId: evt.requestId || evt.id,
-          status: evt.status,
-          provider: evt.provider,
-          error: evt.error?.message || evt.error,
-          lastUpdated: Date.now()
-        });
-      }
+    const listener = (event: GenerationEvent) => {
+      if (!event) return;
+      const payload = (event.data ?? {}) as {
+        status?: string;
+        provider?: string;
+        error?: string | { message?: string };
+      };
+
+      const normalizedError = typeof payload.error === 'string'
+        ? payload.error
+        : payload.error?.message;
+
+      setByokStatus({
+        requestId: event.requestId,
+        status: payload.status ?? event.type,
+        provider: payload.provider,
+        error: normalizedError,
+        lastUpdated: Date.now()
+      });
     };
     aiService.addEventListener(listener);
     return () => aiService.removeEventListener(listener);
@@ -43,22 +52,25 @@ export const GenerationStatusPanel: React.FC<Props> = ({ assetId, pollIntervalMs
   React.useEffect(() => {
     if (!assetId) return;
     let stopped = false;
-    let timer: any;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
       try {
         const res = await fetch(`/api/assets/${assetId}/status`);
-        const data = await res.json();
+        const data = (await res.json()) as ApiResponse<Asset>;
         if (!stopped) {
           setServerStatus(data);
           setServerError(null);
         }
-        const doneStatuses = ['completed', 'failed'];
-        const status = data?.data?.status;
-        if (!doneStatuses.includes(status)) {
+        const doneStatuses: GenerationResult['status'][] = ['completed', 'failed'];
+        const status = data?.data?.status as GenerationResult['status'] | undefined;
+        if (!status || !doneStatuses.includes(status)) {
           timer = setTimeout(poll, pollIntervalMs);
         }
-      } catch (e: any) {
-        if (!stopped) setServerError(e?.message || 'Poll failed');
+      } catch (error: unknown) {
+        if (!stopped) {
+          const message = error instanceof Error ? error.message : 'Poll failed';
+          setServerError(message);
+        }
         timer = setTimeout(poll, pollIntervalMs);
       }
     };
@@ -106,4 +118,3 @@ export const GenerationStatusPanel: React.FC<Props> = ({ assetId, pollIntervalMs
 };
 
 export default GenerationStatusPanel;
-

@@ -10,6 +10,17 @@ import {
 import { OPENAI_CONFIG, OPENAI_API } from './config';
 import { OpenAITextToImageProvider } from './text-to-image';
 
+interface OpenAIModelInfo {
+  id?: string;
+  name?: string;
+}
+
+interface OpenAIModelResponse {
+  data?: OpenAIModelInfo[];
+  usage?: Record<string, unknown>;
+  limits?: Record<string, unknown>;
+}
+
 export class OpenAIProvider extends BaseAIProvider {
   private textToImageProvider: OpenAITextToImageProvider;
 
@@ -43,10 +54,10 @@ export class OpenAIProvider extends BaseAIProvider {
       }
 
       if (response.ok) {
-        const data = await response.json();
-        const hasImageModels = data.data?.some((model: any) => 
-          model.id.includes('dall-e')
-        );
+        const data = await response.json() as OpenAIModelResponse;
+        const hasImageModels = data.data?.some(model =>
+          typeof model.id === 'string' && model.id.includes('dall-e')
+        ) ?? false;
 
         return {
           isValid: true,
@@ -101,17 +112,15 @@ export class OpenAIProvider extends BaseAIProvider {
 
       case 'image-to-video':
         throw new Error('Image-to-video not supported by OpenAI provider');
-
-      default:
-        throw new Error(`Unsupported request type: ${(request as any).type}`);
     }
+    throw new Error(`Unsupported request type: ${request.type}`);
   }
 
   // 获取账户信息
   async getAccountInfo(): Promise<{
     organization?: string;
-    usage?: any;
-    limits?: any;
+    usage?: Record<string, unknown>;
+    limits?: Record<string, unknown>;
   }> {
     try {
       const response = await fetch(`${OPENAI_API.baseUrl}/organizations`, {
@@ -122,7 +131,7 @@ export class OpenAIProvider extends BaseAIProvider {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as OpenAIModelResponse;
         return {
           organization: data.data?.[0]?.name,
           usage: data.usage,
@@ -148,10 +157,10 @@ export class OpenAIProvider extends BaseAIProvider {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as OpenAIModelResponse;
         return data.data
-          ?.filter((model: any) => model.id.includes('dall-e'))
-          .map((model: any) => model.id) || [];
+          ?.filter((model): model is OpenAIModelInfo => typeof model.id === 'string' && model.id.includes('dall-e'))
+          .map(model => model.id) || [];
       }
 
       return [];

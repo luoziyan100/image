@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { configureProvider, aiService } from '@/lib/ai';
+import { configureProvider, aiService, type ProviderConfig } from '@/lib/ai';
 import { Button } from './ui/Button';
 import { cn } from '@/utils/cn';
 
@@ -31,7 +31,7 @@ export const APIKeySettings: React.FC = () => {
   const [availableProviders, setAvailableProviders] = useState<string[]>([]);
 
   // 获取所有提供商配置
-  const [allProviders, setAllProviders] = useState<Array<{id: string; name: string; description: string; apiKeyUrl?: string; capabilities: any}>>([]);
+  const [allProviders, setAllProviders] = useState<ProviderConfig[]>([]);
 
   useEffect(() => {
     loadInitialData();
@@ -70,7 +70,11 @@ export const APIKeySettings: React.FC = () => {
   };
 
   // 更新提供商密钥
-  const updateProviderKey = (providerId: string, field: keyof ProviderKeyState, value: any) => {
+  const updateProviderKey = <K extends keyof ProviderKeyState>(
+    providerId: string,
+    field: K,
+    value: ProviderKeyState[K]
+  ) => {
     setProviderKeys(prev => ({
       ...prev,
       [providerId]: {
@@ -136,8 +140,8 @@ export const APIKeySettings: React.FC = () => {
 
     try {
       const validationPromises = Object.entries(providerKeys)
-        .filter(([_, state]) => state.key.trim())
-        .map(([providerId, _]) => validateProviderKey(providerId));
+        .filter(([, state]) => state.key.trim())
+        .map(([providerId]) => validateProviderKey(providerId));
 
       await Promise.all(validationPromises);
 

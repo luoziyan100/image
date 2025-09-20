@@ -16,8 +16,9 @@ export async function GET() {
     const pg = getPgPool();
     await pg.query('SELECT 1');
     results.postgres = { ok: true, latencyMs: Date.now() - t0 };
-  } catch (e: any) {
-    results.postgres = { ok: false, error: e?.message || 'PG error' };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'PG error';
+    results.postgres = { ok: false, error: message };
   }
 
   // MongoDB
@@ -26,8 +27,9 @@ export async function GET() {
     const mongo = await getMongoClient();
     await mongo.db().command({ ping: 1 });
     results.mongodb = { ok: true, latencyMs: Date.now() - t0 };
-  } catch (e: any) {
-    results.mongodb = { ok: false, error: e?.message || 'Mongo error' };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Mongo error';
+    results.mongodb = { ok: false, error: message };
   }
 
   // Redis
@@ -36,8 +38,9 @@ export async function GET() {
     const redis = getRedisClient();
     const pong = await redis.ping();
     results.redis = { ok: pong === 'PONG', latencyMs: Date.now() - t0 };
-  } catch (e: any) {
-    results.redis = { ok: false, error: e?.message || 'Redis error' };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Redis error';
+    results.redis = { ok: false, error: message };
   }
 
   const ok = Object.values(results).every(r => r.ok);
@@ -49,4 +52,3 @@ export async function GET() {
 
   return NextResponse.json(body, { status: ok ? 200 : 503 });
 }
-

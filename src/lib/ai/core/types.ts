@@ -93,7 +93,7 @@ export interface GenerationResult {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
   createdAt: string;
   completedAt?: string;
@@ -234,7 +234,7 @@ export interface BatchGenerationResult {
 export interface GenerationEvent {
   type: 'started' | 'progress' | 'completed' | 'failed';
   requestId: string;
-  data?: any;
+  data?: unknown;
   timestamp: string;
 }
 

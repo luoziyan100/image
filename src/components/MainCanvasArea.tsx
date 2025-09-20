@@ -3,7 +3,6 @@
 import React, { useState, useCallback, useImperativeHandle, forwardRef, useRef } from 'react';
 import { cn } from '@/utils/cn';
 import { Canvas } from './Canvas';
-import { useFabricCanvas } from '@/hooks/useFabricCanvas';
 
 interface MainCanvasAreaProps {
   projectId: string;
@@ -117,3 +116,5 @@ export const MainCanvasArea = forwardRef<{
     </div>
   );
 });
+
+MainCanvasArea.displayName = 'MainCanvasArea';

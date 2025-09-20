@@ -18,6 +18,22 @@ interface OpenAIImageResponse {
   created: number;
 }
 
+interface OpenAIImageRequestBody {
+  model: string;
+  prompt: string;
+  n: number;
+  size: string;
+  quality: 'hd' | 'standard';
+  response_format: 'url';
+}
+
+interface OpenAIAPIErrorShape {
+  status: number;
+  message?: string;
+  code?: string;
+  type?: string;
+}
+
 export class OpenAITextToImageProvider {
   constructor(private provider: BaseAIProvider) {}
 
@@ -95,8 +111,8 @@ export class OpenAITextToImageProvider {
     return null;
   }
 
-  private buildApiRequest(request: TextToImageRequest): any {
-    const apiRequest: any = {
+  private buildApiRequest(request: TextToImageRequest): OpenAIImageRequestBody {
+    const apiRequest: OpenAIImageRequestBody = {
       model: OPENAI_API.defaultModel,
       prompt: request.prompt,
       n: 1,
@@ -139,9 +155,7 @@ export class OpenAITextToImageProvider {
     return styleEnhancement ? `${prompt}, ${styleEnhancement}` : prompt;
   }
 
-  private async callOpenAIAPI(request: any, apiKey: string): Promise<OpenAIImageResponse> {
-    const startTime = Date.now();
-    
+  private async callOpenAIAPI(request: OpenAIImageRequestBody, apiKey: string): Promise<OpenAIImageResponse> {
     const response = await fetch(`${OPENAI_API.baseUrl}/images/generations`, {
       method: 'POST',
       headers: {
@@ -153,13 +167,20 @@ export class OpenAITextToImageProvider {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw {
+      const errorData = await response.json().catch(() => ({} as Record<string, unknown>));
+      const thrownError: OpenAIAPIErrorShape = {
         status: response.status,
-        message: errorData.error?.message || response.statusText,
-        code: errorData.error?.code,
-        type: errorData.error?.type
+        message: isRecord(errorData.error) && typeof errorData.error.message === 'string'
+          ? errorData.error.message
+          : response.statusText,
+        code: isRecord(errorData.error) && typeof errorData.error.code === 'string'
+          ? errorData.error.code
+          : undefined,
+        type: isRecord(errorData.error) && typeof errorData.error.type === 'string'
+          ? errorData.error.type
+          : undefined
       };
+      throw thrownError;
     }
 
     return await response.json() as OpenAIImageResponse;
@@ -197,17 +218,26 @@ export class OpenAITextToImageProvider {
     };
   }
 
-  private getErrorCode(error: any): string {
-    if (error.code) return error.code;
-    if (error.status === 401) return 'AUTHENTICATION_ERROR';
-    if (error.status === 429) return 'RATE_LIMIT_EXCEEDED';
-    if (error.status === 400) return 'INVALID_REQUEST';
+  private getErrorCode(error: unknown): string {
+    const errorRecord = isRecord(error) ? error : undefined;
+    if (typeof errorRecord?.code === 'string') return errorRecord.code;
+    if (typeof errorRecord?.status === 'number') {
+      if (errorRecord.status === 401) return 'AUTHENTICATION_ERROR';
+      if (errorRecord.status === 429) return 'RATE_LIMIT_EXCEEDED';
+      if (errorRecord.status === 400) return 'INVALID_REQUEST';
+    }
     return 'UNKNOWN_ERROR';
   }
 
-  private getErrorMessage(error: any): string {
-    if (error.message) return error.message;
-    if (error.status) return `HTTP ${error.status} error`;
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    const errorRecord = isRecord(error) ? error : undefined;
+    if (typeof errorRecord?.message === 'string') return errorRecord.message;
+    if (typeof errorRecord?.status === 'number') return `HTTP ${errorRecord.status} error`;
     return 'Unknown error occurred';
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

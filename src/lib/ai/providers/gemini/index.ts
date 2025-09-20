@@ -127,10 +127,8 @@ export class GeminiProvider extends BaseAIProvider {
 
       case 'image-to-video':
         throw new Error('Image-to-video not supported by Gemini provider');
-
-      default:
-        throw new Error(`Unsupported request type: ${(request as any).type}`);
     }
+    throw new Error(`Unsupported request type: ${request.type}`);
   }
 
   // 获取支持的模型列表

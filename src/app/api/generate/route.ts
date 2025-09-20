@@ -85,12 +85,15 @@ export async function POST(req: NextRequest) {
       });
       
       // 4. 准备任务数据
+      const userId = 'anonymous';
+
       const jobData: GenerationJobData = {
         assetId: asset.id,
         sketchData: {
           imageBuffer: imageBuffer, // 使用实际的图片Buffer
           prompt: prompt || '将这个手绘草图转换为精美的专业艺术作品，保持原有构图'
         },
+        userId,
         options: {
           quality: 'high'
         }

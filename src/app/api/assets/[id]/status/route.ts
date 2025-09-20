@@ -7,16 +7,17 @@ export const runtime = 'nodejs';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
   try {
-    const res = await getAssetStatus(params.id);
+    const res = await getAssetStatus(id);
     if (!res.success) {
       return NextResponse.json(res, { status: 404 });
     }
     return NextResponse.json(res);
-  } catch (e: any) {
-    return NextResponse.json({ success: false, error: 'SERVER_ERROR', message: e?.message || 'Failed' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed';
+    return NextResponse.json({ success: false, error: 'SERVER_ERROR', message }, { status: 500 });
   }
 }
-

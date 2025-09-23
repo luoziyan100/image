@@ -61,7 +61,6 @@ export const MainCanvasArea = forwardRef<{
       <div className="canvas-container flex-1">
         <Canvas
           ref={canvasRef}
-          projectId={projectId}
           width={680}
           height={520}
           activeTool={activeTool}

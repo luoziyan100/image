@@ -34,21 +34,11 @@ interface GoogleNativeResponse {
   };
 }
 
-// Chat格式响应类型
-interface ChatResponse {
-  choices: Array<{
-    message: {
-      role: string;
-      content: string;
-    };
-  }>;
-}
-
 export class GeminiTextToImageProvider {
   constructor(private provider: BaseAIProvider) {}
 
   async generateImage(request: TextToImageRequest, apiKey: string): Promise<GenerationResult> {
-    const requestId = this.provider.generateRequestId();
+    const requestId = this.provider.createRequestId();
     
     try {
       // 验证请求
@@ -297,7 +287,7 @@ export class GeminiTextToImageProvider {
                 if (parsed.choices?.[0]?.delta?.content) {
                   fullContent += parsed.choices[0].delta.content;
                 }
-              } catch (e) {
+              } catch {
                 // 忽略JSON解析错误
               }
             }
@@ -471,7 +461,7 @@ export class GeminiTextToImageProvider {
   private createErrorResult(
     requestId: string, 
     request: TextToImageRequest, 
-    error: any
+    error: unknown
   ): GenerationResult {
     return {
       id: requestId,
@@ -486,16 +476,34 @@ export class GeminiTextToImageProvider {
     };
   }
 
-  private getErrorCode(error: any): string {
-    if (error.code) return error.code;
-    if (error.message?.includes('401')) return 'AUTHENTICATION_ERROR';
-    if (error.message?.includes('429')) return 'RATE_LIMIT_EXCEEDED';
-    if (error.message?.includes('400')) return 'INVALID_REQUEST';
-    if (error.message?.includes('timeout')) return 'TIMEOUT';
+  private getErrorCode(error: unknown): string {
+    const errorRecord = isRecord(error) ? error : undefined;
+    const message = (typeof errorRecord?.message === 'string'
+      ? errorRecord.message
+      : error instanceof Error
+        ? error.message
+        : String(error)
+    ).toLowerCase();
+
+    if (typeof errorRecord?.code === 'string') return errorRecord.code;
+    if (message.includes('401')) return 'AUTHENTICATION_ERROR';
+    if (message.includes('429')) return 'RATE_LIMIT_EXCEEDED';
+    if (message.includes('400')) return 'INVALID_REQUEST';
+    if (message.includes('timeout')) return 'TIMEOUT';
     return 'UNKNOWN_ERROR';
   }
 
-  private getErrorMessage(error: any): string {
-    return error.message || error.toString() || 'Unknown error occurred';
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (isRecord(error) && typeof error.message === 'string') {
+      return error.message;
+    }
+    return String(error);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

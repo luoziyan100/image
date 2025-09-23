@@ -6,7 +6,38 @@ import { Button } from './ui/Button';
 interface CanvasDebuggerProps {
   canvasImageData?: string | null;
   hasCanvasContent?: boolean;
-  uploadedImages?: any[];
+  uploadedImages?: UploadedImageInfo[];
+}
+
+interface UploadedImageInfo {
+  id?: string;
+  name?: string;
+  size?: number;
+  url?: string;
+}
+
+interface DebugInfo {
+  timestamp: string;
+  hasCanvasContent: boolean;
+  canvasImageData: {
+    exists: boolean;
+    type: 'base64' | 'other';
+    length: number;
+    preview: string | null;
+    isValidBase64: boolean;
+  };
+  uploadedImages: {
+    count: number;
+    details: Array<{
+      index: number;
+      id?: string;
+      name?: string;
+      size?: number;
+      hasUrl: boolean;
+      urlLength: number;
+    }>;
+  };
+  priority: 'canvas' | 'uploaded' | 'text-only';
 }
 
 export const CanvasDebugger: React.FC<CanvasDebuggerProps> = ({
@@ -14,16 +45,23 @@ export const CanvasDebugger: React.FC<CanvasDebuggerProps> = ({
   hasCanvasContent = false,
   uploadedImages = []
 }) => {
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
   const runDebugCheck = useCallback(() => {
+    const isBase64 = Boolean(canvasImageData && canvasImageData.startsWith('data:'));
+    const priority: DebugInfo['priority'] = hasCanvasContent && canvasImageData
+      ? 'canvas'
+      : uploadedImages.length > 0
+        ? 'uploaded'
+        : 'text-only';
+
     const info = {
       timestamp: new Date().toISOString(),
       hasCanvasContent,
       canvasImageData: {
         exists: !!canvasImageData,
-        type: canvasImageData?.startsWith('data:') ? 'base64' : 'other',
+        type: isBase64 ? 'base64' : 'other',
         length: canvasImageData?.length || 0,
         preview: canvasImageData?.substring(0, 100) || null,
         isValidBase64: canvasImageData?.includes('data:image/') || false
@@ -39,9 +77,8 @@ export const CanvasDebugger: React.FC<CanvasDebuggerProps> = ({
           urlLength: img.url?.length || 0
         }))
       },
-      priority: hasCanvasContent && canvasImageData ? 'canvas' : 
-               uploadedImages.length > 0 ? 'uploaded' : 'text-only'
-    };
+      priority
+    } satisfies DebugInfo;
 
     setDebugInfo(info);
     console.log('🔍 画布调试器 - 完整诊断:', info);

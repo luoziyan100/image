@@ -11,7 +11,7 @@ import type { GenerationJobData } from '@/types';
 export async function POST(req: NextRequest) {
   try {
     // 预算检查
-    const budgetCheck = await budgetMiddleware(req);
+    const budgetCheck = await budgetMiddleware();
     if (budgetCheck) {
       return budgetCheck; // 预算限制，直接返回错误响应
     }
@@ -28,6 +28,20 @@ export async function POST(req: NextRequest) {
     }
     
     console.log('🚀 开始处理图片生成请求...');
+
+    // === 参数校验（图片格式/大小/前缀） ===
+    const MAX_MB = Number(process.env.MAX_IMAGE_BASE64_MB || process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB || 10);
+    const allowedMime = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (typeof imageData !== 'string' || !imageData.startsWith('data:image/')) {
+      return NextResponse.json({ success: false, error: 'INVALID_IMAGE_DATA', message: 'imageData 必须是 data:image/*;base64,... 格式' }, { status: 400 });
+    }
+    const mime = imageData.substring(5, imageData.indexOf(';'));
+    if (!allowedMime.includes(mime)) {
+      return NextResponse.json({ success: false, error: 'UNSUPPORTED_IMAGE_TYPE', message: `不支持的图片类型: ${mime}` }, { status: 415 });
+    }
+    if (!/;base64,/.test(imageData)) {
+      return NextResponse.json({ success: false, error: 'INVALID_IMAGE_ENCODING', message: '图片数据必须是 base64 编码' }, { status: 400 });
+    }
     
     const result = await withDatabase(async (pg, mongo) => {
       // 1. 处理base64图片数据
@@ -37,8 +51,13 @@ export async function POST(req: NextRequest) {
         const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
         imageBuffer = Buffer.from(base64Data, 'base64');
         console.log('✅ 成功处理图片数据，大小:', imageBuffer.length, 'bytes');
+        const maxBytes = MAX_MB * 1024 * 1024;
+        if (imageBuffer.length > maxBytes) {
+          throw new Error(`图片过大(${(imageBuffer.length/1024/1024).toFixed(2)}MB)，最大 ${MAX_MB}MB`);
+        }
       } catch (error) {
-        throw new Error('无效的图片数据格式');
+        const msg = error instanceof Error ? error.message : '无效的图片数据格式';
+        throw new Error(msg);
       }
       
       // 2. 保存草图到MongoDB（保存原始图片数据）
@@ -66,12 +85,15 @@ export async function POST(req: NextRequest) {
       });
       
       // 4. 准备任务数据
+      const userId = 'anonymous';
+
       const jobData: GenerationJobData = {
         assetId: asset.id,
         sketchData: {
           imageBuffer: imageBuffer, // 使用实际的图片Buffer
           prompt: prompt || '将这个手绘草图转换为精美的专业艺术作品，保持原有构图'
         },
+        userId,
         options: {
           quality: 'high'
         }

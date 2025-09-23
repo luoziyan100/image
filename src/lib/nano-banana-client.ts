@@ -17,6 +17,26 @@ export interface GenerateImageResult {
   processingTimeMs: number;
 }
 
+interface NanoBananaRequestBody {
+  prompt: string;
+  quality: 'standard' | 'high';
+  aspect_ratio: '1:1' | '16:9' | '9:16';
+  response_format: 'b64_json';
+  image?: string;
+  strength?: number;
+  seed?: number;
+}
+
+interface NanoBananaResponse {
+  data: Array<{
+    b64_json: string;
+    metadata?: {
+      seed?: number;
+      model_version?: string;
+    };
+  }>;
+}
+
 class NanoBananaService {
   private apiKey: string;
   private baseUrl: string = 'https://api.nanobanana.ai/v1';
@@ -37,7 +57,7 @@ class NanoBananaService {
     
     const startTime = Date.now();
     
-    const requestBody: any = {
+    const requestBody: NanoBananaRequestBody = {
       prompt,
       quality,
       aspect_ratio: aspectRatio,
@@ -49,7 +69,7 @@ class NanoBananaService {
       requestBody.image = imageData;
       requestBody.strength = 0.7; // 重绘强度
     }
-    
+
     // 一致性控制
     if (seed) {
       requestBody.seed = seed;
@@ -65,13 +85,16 @@ class NanoBananaService {
     });
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`AI_API_ERROR: ${error.error || response.statusText}`);
+      const errorPayload = await response.json().catch(() => ({} as Record<string, unknown>));
+      const message = isRecord(errorPayload) && typeof errorPayload.error === 'string'
+        ? errorPayload.error
+        : response.statusText;
+      throw new Error(`AI_API_ERROR: ${message}`);
     }
-    
-    const result = await response.json();
+
+    const result = await response.json() as NanoBananaResponse;
     const processingTimeMs = Date.now() - startTime;
-    
+
     return {
       imageBuffer: Buffer.from(result.data[0].b64_json, 'base64'),
       seed: result.data[0].metadata?.seed,
@@ -90,7 +113,7 @@ class NanoBananaService {
   }): Promise<GenerateImageResult> {
     const { projectId, frameIndex, prompt, previousFrameUrl, baseSeed } = params;
     
-    let imageData = null;
+    let imageData: string | undefined;
     let seed = baseSeed;
     
     if (frameIndex > 0 && previousFrameUrl) {
@@ -106,9 +129,8 @@ class NanoBananaService {
     
     return await this.generateImage({
       prompt: enhancedPrompt,
-      imageData,
-      seed,
-      mode: imageData ? 'image-to-image' : 'text-to-image'
+      ...(imageData ? { imageData, mode: 'image-to-image' as const } : { mode: 'text-to-image' as const }),
+      seed
     });
   }
   
@@ -127,3 +149,7 @@ class NanoBananaService {
 }
 
 export default NanoBananaService;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}

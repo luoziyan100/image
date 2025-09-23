@@ -143,7 +143,7 @@ export class ImageToImageConsistency {
   }): Promise<GenerateImageResult> {
     const { projectId, frameIndex, newPrompt, previousFrameUrl, baseSeed } = params;
     
-    let imageData = null;
+    let imageData: string | undefined;
     let seed = baseSeed;
     
     if (frameIndex > 0 && previousFrameUrl) {
@@ -158,9 +158,8 @@ export class ImageToImageConsistency {
     
     return await this.nanoBanana.generateImage({
       prompt: enhancedPrompt,
-      imageData,
-      seed,
-      mode: imageData ? 'image-to-image' : 'text-to-image'
+      ...(imageData ? { imageData, mode: 'image-to-image' as const } : { mode: 'text-to-image' as const }),
+      seed
     });
   }
   

@@ -16,16 +16,6 @@ interface OpenAIEditResponse {
   }>;
 }
 
-// Chat模式响应类型
-interface ChatResponse {
-  choices: Array<{
-    message: {
-      role: string;
-      content: string;
-    };
-  }>;
-}
-
 // 谷歌原生格式响应类型
 interface GoogleNativeResponse {
   candidates: Array<{
@@ -44,11 +34,18 @@ interface GoogleNativeResponse {
   };
 }
 
+interface GoogleInlinePart {
+  inline_data: {
+    mime_type: string;
+    data: string;
+  };
+}
+
 export class GeminiImageToImageProvider {
   constructor(private provider: BaseAIProvider) {}
 
   async transformImage(request: ImageToImageRequest, apiKey: string): Promise<GenerationResult> {
-    const requestId = this.provider.generateRequestId();
+    const requestId = this.provider.createRequestId();
     
     console.log('🤖 Gemini图生图 - 开始处理请求:', {
       requestId,
@@ -71,20 +68,38 @@ export class GeminiImageToImageProvider {
       const apiMode = this.selectAPIMode(request);
       console.log('🔧 Gemini图生图 - 选择API模式:', apiMode);
       
-      // 调用相应的API
-      let result: GenerationResult;
-      switch (apiMode) {
-        case GeminiAPIMode.OPENAI_EDIT:
-          result = await this.callOpenAIEdit(request, apiKey, requestId);
-          break;
-        case GeminiAPIMode.CHAT_COMPLETION:
-          result = await this.callChatCompletion(request, apiKey, requestId);
-          break;
-        case GeminiAPIMode.GOOGLE_NATIVE:
-          result = await this.callGoogleNative(request, apiKey, requestId);
-          break;
-        default:
-          result = await this.callOpenAIEdit(request, apiKey, requestId);
+      // 调用相应的API（带容错回退）
+      let result: GenerationResult | null = null;
+      const attempts: Array<GeminiAPIMode> = [];
+      // 优先使用选择的模式，然后回退到其他模式
+      if (apiMode === GeminiAPIMode.OPENAI_EDIT) {
+        attempts.push(GeminiAPIMode.OPENAI_EDIT, GeminiAPIMode.CHAT_COMPLETION, GeminiAPIMode.GOOGLE_NATIVE);
+      } else if (apiMode === GeminiAPIMode.CHAT_COMPLETION) {
+        attempts.push(GeminiAPIMode.CHAT_COMPLETION, GeminiAPIMode.OPENAI_EDIT, GeminiAPIMode.GOOGLE_NATIVE);
+      } else {
+        attempts.push(GeminiAPIMode.GOOGLE_NATIVE, GeminiAPIMode.OPENAI_EDIT, GeminiAPIMode.CHAT_COMPLETION);
+      }
+
+      let lastError: unknown = null;
+      for (const mode of attempts) {
+        try {
+          if (mode === GeminiAPIMode.OPENAI_EDIT) {
+            result = await this.callOpenAIEdit(request, apiKey, requestId);
+          } else if (mode === GeminiAPIMode.CHAT_COMPLETION) {
+            result = await this.callChatCompletion(request, apiKey, requestId);
+          } else {
+            result = await this.callGoogleNative(request, apiKey, requestId);
+          }
+          // 成功则跳出
+          if (result) break;
+        } catch (e) {
+          lastError = e;
+          console.warn(`Gemini image-to-image attempt failed on ${mode}:`, e instanceof Error ? e.message : e);
+        }
+      }
+
+      if (!result) {
+        throw lastError || new Error('All image-to-image modes failed');
       }
       
       console.log('✅ Gemini图生图 - 请求完成:', {
@@ -163,15 +178,30 @@ export class GeminiImageToImageProvider {
     requestId: string
   ): Promise<GenerationResult> {
     const enhancedPrompt = this.enhancePromptWithStyle(request.prompt, request.style);
-    
-    // 处理图片数据
-    const imageBlob = await this.prepareImageBlob(request.sourceImage);
-    
+
+    // 处理图片数据（支持多图，按顺序）
+    const images: string[] = (request.sourceImages && request.sourceImages.length > 0)
+      ? request.sourceImages
+      : [request.sourceImage];
+    const blobs: Blob[] = [];
+    for (let i = 0; i < images.length; i++) {
+      const blob = await this.prepareImageBlob(images[i]);
+      blobs.push(blob);
+    }
+
     const formData = new FormData();
+    // 基础必填参数（按 OpenAI Edit 兼容格式）
     formData.append('model', GEMINI_API.defaultModel);
     formData.append('prompt', enhancedPrompt);
-    formData.append('image', imageBlob, 'image.png');
+    blobs.forEach((blob, idx) => {
+      const name = `image_${idx + 1}.png`;
+      formData.append('image', blob, name);
+      try { formData.append('image[]', blob, name); } catch {}
+    });
     formData.append('response_format', 'b64_json');
+    // 兼容某些网关要求的数组字段名（image[]）
+    // 明确生成数量
+    formData.append('n', '1');
     
     if (request.dimensions) {
       formData.append('size', this.formatSize(request.dimensions));
@@ -204,6 +234,33 @@ export class GeminiImageToImageProvider {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      // 读取更详细的错误信息，便于定位（可能不是JSON）
+      let detail = '';
+      try {
+        const cloned = response.clone();
+        detail = await cloned.text();
+      } catch {}
+      console.error('Gemini openai-edit upstream error:', response.status, detail?.slice(0, 400));
+
+      // 如果是代理错误，尝试直接调用上游（可能会命中 CORS，但在部分环境可用）
+      if (detail?.includes('AI_PROXY_ERROR')) {
+        try {
+          const directRes = await fetch(`${GEMINI_API.directBaseUrl}/images/edits`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            body: formData,
+            signal: controller.signal
+          });
+          if (!directRes.ok) {
+            throw await this.handleAPIError(directRes);
+          }
+          const directJson: OpenAIEditResponse = await directRes.json();
+          return this.processOpenAIResponse(directJson, requestId, request);
+        } catch (fallbackErr) {
+          console.warn('Direct openai-edit fallback failed:', fallbackErr);
+        }
+      }
+
       throw await this.handleAPIError(response);
     }
 
@@ -217,10 +274,15 @@ export class GeminiImageToImageProvider {
     requestId: string
   ): Promise<GenerationResult> {
     const enhancedPrompt = this.enhancePromptWithStyle(request.prompt, request.style);
-    
-    // 准备图片数据用于Chat格式
-    const imageData = await this.prepareImageData(request.sourceImage);
-    
+    // 准备图片数据用于Chat格式（多图）
+    const imgList: string[] = (request.sourceImages && request.sourceImages.length > 0)
+      ? request.sourceImages
+      : [request.sourceImage];
+    const imageDataList: string[] = [];
+    for (const img of imgList) {
+      imageDataList.push(await this.prepareImageData(img));
+    }
+
     const messages = [{
       role: 'user' as const,
       content: [
@@ -228,12 +290,10 @@ export class GeminiImageToImageProvider {
           type: 'text' as const,
           text: enhancedPrompt
         },
-        {
+        ...imageDataList.map((d) => ({
           type: 'image_url' as const,
-          image_url: {
-            url: imageData
-          }
-        }
+          image_url: { url: d }
+        }))
       ]
     }];
 
@@ -271,6 +331,31 @@ export class GeminiImageToImageProvider {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      let detail = '';
+      try {
+        const cloned = response.clone();
+        detail = await cloned.text();
+      } catch {}
+      console.error('Gemini chat-completion upstream error:', response.status, detail?.slice(0, 400));
+
+      if (detail?.includes('AI_PROXY_ERROR')) {
+        try {
+          const directRes = await fetch(`${GEMINI_API.directBaseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json; charset=utf-8'
+            },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal
+          });
+          if (!directRes.ok) throw await this.handleAPIError(directRes);
+          return await this.processStreamResponse(directRes, requestId, request);
+        } catch (fallbackErr) {
+          console.warn('Direct chat-completion fallback failed:', fallbackErr);
+        }
+      }
+
       throw await this.handleAPIError(response);
     }
 
@@ -283,14 +368,20 @@ export class GeminiImageToImageProvider {
     requestId: string
   ): Promise<GenerationResult> {
     const enhancedPrompt = this.enhancePromptWithStyle(request.prompt, request.style);
-    
-    // 准备图片数据
-    const { mimeType, data } = await this.prepareGoogleImageData(request.sourceImage);
-    
+    // 准备图片数据（多图）
+    const imgList: string[] = (request.sourceImages && request.sourceImages.length > 0)
+      ? request.sourceImages
+      : [request.sourceImage];
+    const parts: GoogleInlinePart[] = [];
+    for (const img of imgList) {
+      const { mimeType, data } = await this.prepareGoogleImageData(img);
+      parts.push({ inline_data: { mime_type: mimeType, data } });
+    }
+
     const requestBody = {
       contents: [{
         parts: [
-          { inline_data: { mime_type: mimeType, data } },
+          ...parts,
           { text: enhancedPrompt }
         ]
       }],
@@ -331,6 +422,35 @@ export class GeminiImageToImageProvider {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      let detail = '';
+      try {
+        const cloned = response.clone();
+        detail = await cloned.text();
+      } catch {}
+      console.error('Gemini google-native upstream error:', response.status, detail?.slice(0, 400));
+
+      if (detail?.includes('AI_PROXY_ERROR')) {
+        try {
+          const directRes = await fetch(
+            `${GEMINI_API.directGoogleUrl}/models/${GEMINI_API.previewModel}:generateContent`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json; charset=utf-8'
+              },
+              body: JSON.stringify(requestBody),
+              signal: controller.signal
+            }
+          );
+          if (!directRes.ok) throw await this.handleAPIError(directRes);
+          const directJson: GoogleNativeResponse = await directRes.json();
+          return this.processGoogleNativeResponse(directJson, requestId, request);
+        } catch (fallbackErr) {
+          console.warn('Direct google-native fallback failed:', fallbackErr);
+        }
+      }
+
       throw await this.handleAPIError(response);
     }
 
@@ -412,7 +532,7 @@ export class GeminiImageToImageProvider {
                 if (parsed.choices?.[0]?.delta?.content) {
                   fullContent += parsed.choices[0].delta.content;
                 }
-              } catch (e) {
+              } catch {
                 // 忽略JSON解析错误
               }
             }
@@ -576,8 +696,14 @@ export class GeminiImageToImageProvider {
 
   private async handleAPIError(response: Response): Promise<Error> {
     try {
-      const errorData = await response.json();
-      return new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+      const text = await response.text();
+      // 尝试JSON解析，否则回退到纯文本
+      try {
+        const errorData = JSON.parse(text);
+        return new Error(errorData.error?.message || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      } catch {
+        return new Error(text || `HTTP ${response.status}: ${response.statusText}`);
+      }
     } catch {
       return new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -586,7 +712,7 @@ export class GeminiImageToImageProvider {
   private createErrorResult(
     requestId: string, 
     request: ImageToImageRequest, 
-    error: any
+    error: unknown
   ): GenerationResult {
     return {
       id: requestId,
@@ -601,16 +727,36 @@ export class GeminiImageToImageProvider {
     };
   }
 
-  private getErrorCode(error: any): string {
-    if (error.code) return error.code;
-    if (error.message?.includes('401')) return 'AUTHENTICATION_ERROR';
-    if (error.message?.includes('429')) return 'RATE_LIMIT_EXCEEDED';
-    if (error.message?.includes('400')) return 'INVALID_REQUEST';
-    if (error.message?.includes('timeout')) return 'TIMEOUT';
+  private getErrorCode(error: unknown): string {
+    const errorRecord = isRecord(error) ? error : undefined;
+    const message = (typeof errorRecord?.message === 'string'
+      ? errorRecord.message
+      : error instanceof Error
+        ? error.message
+        : String(error)
+    ).toLowerCase();
+
+    if (typeof errorRecord?.code === 'string') return errorRecord.code;
+    if (message.includes('401')) return 'AUTHENTICATION_ERROR';
+    if (message.includes('429')) return 'RATE_LIMIT_EXCEEDED';
+    if (message.includes('400')) return 'INVALID_REQUEST';
+    if (message.includes('timeout')) return 'TIMEOUT';
+    if (message.includes('413')) return 'PAYLOAD_TOO_LARGE';
+    if (message.includes('415')) return 'UNSUPPORTED_MEDIA_TYPE';
     return 'UNKNOWN_ERROR';
   }
 
-  private getErrorMessage(error: any): string {
-    return error.message || error.toString() || 'Unknown error occurred';
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (isRecord(error) && typeof error.message === 'string') {
+      return error.message;
+    }
+    return String(error);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

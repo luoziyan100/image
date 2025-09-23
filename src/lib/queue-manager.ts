@@ -9,10 +9,16 @@ import { updateAssetStatus, recordBillingEvent } from './asset-service';
 import { uploadToS3 } from './s3-service';
 import type { GenerationJobData } from '@/types';
 
+interface GenerationJobResult {
+  success: boolean;
+  assetId: string;
+  storageUrl: string;
+}
+
 // 队列定义
 const redisConnection = getRedisClient();
 
-export const imageQueue = new Queue('image-generation', {
+export const imageQueue = new Queue<GenerationJobData, GenerationJobResult, string>('image-generation', {
   connection: redisConnection,
   defaultJobOptions: {
     attempts: 5,
@@ -33,8 +39,13 @@ export const JOB_TYPES = {
   CLEANUP_RESOURCES: 'cleanup-resources'
 } as const;
 
-// Worker 进程实现
-export const imageGenerationWorker = new Worker('image-generation', async (job: Job<GenerationJobData>) => {
+// 环境开关：是否在当前进程启动 Worker
+const WORKER_ENABLED = process.env.ENABLE_QUEUE_WORKER === 'true';
+
+// Worker 进程实例（默认不在导入时启动，避免在Next服务进程内重复消费）
+export let imageGenerationWorker: Worker<GenerationJobData, GenerationJobResult> | null = null;
+
+async function workerProcessor(job: Job<GenerationJobData>): Promise<GenerationJobResult> {
   const { assetId, sketchData, userId } = job.data;
   
   try {
@@ -46,7 +57,8 @@ export const imageGenerationWorker = new Worker('image-generation', async (job: 
     // Step 1: 输入内容审核
     const inputAuditResult = await auditContent(sketchData.imageBuffer);
     if (!inputAuditResult.passed) {
-      throw new Error(`INPUT_REJECTED: ${inputAuditResult.reason}`);
+      const inputReason = formatModerationReason(inputAuditResult);
+      throw new Error(`INPUT_REJECTED: ${inputReason}`);
     }
     
     // 更新状态: auditing_input -> generating  
@@ -61,7 +73,8 @@ export const imageGenerationWorker = new Worker('image-generation', async (job: 
     // Step 3: 输出内容审核
     const outputAuditResult = await auditContent(generationResult.imageBuffer);
     if (!outputAuditResult.passed) {
-      throw new Error(`OUTPUT_REJECTED: ${outputAuditResult.reason}`);
+      const outputReason = formatModerationReason(outputAuditResult);
+      throw new Error(`OUTPUT_REJECTED: ${outputReason}`);
     }
     
     // 更新状态: auditing_output -> uploading
@@ -72,10 +85,16 @@ export const imageGenerationWorker = new Worker('image-generation', async (job: 
     
     // Step 5: 更新最终状态
     await updateAssetStatus(assetId, 'completed', { 
-      storage_url: s3Url,
-      processing_time_ms: generationResult.processingTimeMs,
-      ai_model_version: generationResult.modelVersion,
-      generation_seed: generationResult.seed
+      storageUrl: s3Url,
+      ...(typeof generationResult.processingTimeMs === 'number'
+        ? { processingTimeMs: generationResult.processingTimeMs }
+        : {}),
+      ...(generationResult.modelVersion
+        ? { aiModelVersion: generationResult.modelVersion }
+        : {}),
+      ...(typeof generationResult.seed === 'number'
+        ? { generationSeed: generationResult.seed }
+        : {})
     });
     
     // Step 6: 记录成本事件
@@ -94,20 +113,47 @@ export const imageGenerationWorker = new Worker('image-generation', async (job: 
     console.error(`❌ 图片生成失败: ${assetId}`, error);
     
     await updateAssetStatus(assetId, 'failed', {
-      error_message: error instanceof Error ? error.message : 'Unknown error',
-      error_code: error instanceof Error ? error.message.split(':')[0] : 'UNKNOWN_ERROR'
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      errorCode: error instanceof Error ? error.message.split(':')[0] : 'UNKNOWN_ERROR'
     });
     
     throw error;
   }
-}, {
-  connection: redisConnection,
-  concurrency: 3, // 单个Worker实例最多同时处理3个任务
-  limiter: {
-    max: 5,    // 全局限制：每分钟最多5个API调用
-    duration: 60000 // 1分钟
+}
+
+export function startImageGenerationWorker(options?: { concurrency?: number }) {
+  if (imageGenerationWorker) {
+    console.log('ℹ️ Worker already started');
+    return imageGenerationWorker;
   }
-});
+  imageGenerationWorker = new Worker<GenerationJobData, GenerationJobResult>('image-generation', workerProcessor, {
+    connection: redisConnection,
+    concurrency: options?.concurrency ?? 3,
+    limiter: { max: 5, duration: 60000 }
+  });
+
+  // Worker 事件监听
+  imageGenerationWorker.on('completed', (job, result) => {
+    console.log(`🎉 Worker完成任务: ${job.id}`, result);
+  });
+  
+  imageGenerationWorker.on('failed', (job, error) => {
+    console.error(`💥 Worker任务失败: ${job?.id}`, error);
+  });
+
+  // 优雅关闭
+  process.on('SIGINT', async () => {
+    console.log('⏹️ 正在关闭队列系统...');
+    await imageQueue.close();
+    if (imageGenerationWorker) {
+      await imageGenerationWorker.close();
+    }
+    console.log('✅ 队列系统已关闭');
+    process.exit(0);
+  });
+
+  return imageGenerationWorker;
+}
 
 // 队列管理器
 export class QueueManager {
@@ -171,33 +217,20 @@ export class QueueManager {
   }
 }
 
-// 队列事件监听
-imageQueue.on('completed', (job, result) => {
-  console.log(`✅ 任务完成: ${job.id}`, result);
-});
+// 如果显式启用，则在当前进程启动 Worker（用于本地独立进程或显式启用场景）
+if (WORKER_ENABLED) {
+  startImageGenerationWorker();
+}
 
-imageQueue.on('failed', (job, error) => {
-  console.error(`❌ 任务失败: ${job?.id}`, error);
-});
-
-imageQueue.on('progress', (job, progress) => {
-  console.log(`📊 任务进度: ${job.id} - ${progress}%`);
-});
-
-// Worker 事件监听
-imageGenerationWorker.on('completed', (job, result) => {
-  console.log(`🎉 Worker完成任务: ${job.id}`);
-});
-
-imageGenerationWorker.on('failed', (job, error) => {
-  console.error(`💥 Worker任务失败: ${job?.id}`, error);
-});
-
-// 优雅关闭
-process.on('SIGINT', async () => {
-  console.log('⏹️ 正在关闭队列系统...');
-  await imageQueue.close();
-  await imageGenerationWorker.close();
-  console.log('✅ 队列系统已关闭');
-  process.exit(0);
-});
+function formatModerationReason(result: {
+  violations?: Array<{ category: string; detected: string; threshold?: string }>;
+  error?: string;
+  message?: string;
+}): string {
+  if (result.violations && result.violations.length > 0) {
+    return result.violations
+      .map(v => `${v.category}:${v.detected}`)
+      .join(', ');
+  }
+  return result.error || result.message || 'UNKNOWN_REASON';
+}

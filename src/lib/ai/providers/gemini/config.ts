@@ -51,9 +51,15 @@ export const GEMINI_CONFIG: ProviderConfig = {
 };
 
 // Gemini API配置
+const PROXY_ROOT = (process.env.NEXT_PUBLIC_AI_PROXY_GEMINI || '').replace(/\/$/, '');
+const DIRECT_ROOT = 'https://api.tu-zi.com';
+
 export const GEMINI_API = {
-  baseUrl: 'https://api.tu-zi.com/v1',
-  googleApiUrl: 'https://api.tu-zi.com/v1beta', // 谷歌官方格式
+  // 若设置了前端代理，则优先走本地代理以避免 CORS/网络不稳定
+  baseUrl: PROXY_ROOT ? `${PROXY_ROOT}/v1` : 'https://api.tu-zi.com/v1',
+  googleApiUrl: PROXY_ROOT ? `${PROXY_ROOT}/v1beta` : 'https://api.tu-zi.com/v1beta', // 谷歌官方格式
+  directBaseUrl: `${DIRECT_ROOT}/v1`,
+  directGoogleUrl: `${DIRECT_ROOT}/v1beta`,
   timeout: 120000, // 120秒超时（增加超时时间以处理复杂的图生图任务）
   defaultModel: 'gemini-2.5-flash-image',
   previewModel: 'gemini-2.5-flash-image-preview',

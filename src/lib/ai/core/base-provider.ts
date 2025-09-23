@@ -101,11 +101,15 @@ export abstract class BaseAIProvider {
   }
 
   // 处理提供商特定错误
-  protected handleProviderError(error: any): ProviderError {
+  protected handleProviderError(error: unknown): ProviderError {
     const providerName = this.getName();
-    
+    const errorRecord = isRecord(error) ? error : undefined;
+    const code = typeof errorRecord?.code === 'string' ? errorRecord.code : undefined;
+    const status = typeof errorRecord?.status === 'number' ? errorRecord.status : undefined;
+    const message = extractErrorMessage(error);
+
     // 通用错误处理
-    if (error.code === 'ENOTFOUND' || error.code === 'ECONNRESET') {
+    if (code === 'ENOTFOUND' || code === 'ECONNRESET') {
       return {
         code: 'NETWORK_ERROR',
         message: 'Network connection failed',
@@ -115,7 +119,7 @@ export abstract class BaseAIProvider {
       };
     }
 
-    if (error.status === 401 || error.status === 403) {
+    if (status === 401 || status === 403) {
       return {
         code: 'AUTHENTICATION_ERROR',
         message: 'Invalid API key or insufficient permissions',
@@ -125,7 +129,7 @@ export abstract class BaseAIProvider {
       };
     }
 
-    if (error.status === 429) {
+    if (status === 429) {
       return {
         code: 'RATE_LIMIT_EXCEEDED',
         message: 'Rate limit exceeded',
@@ -135,7 +139,7 @@ export abstract class BaseAIProvider {
       };
     }
 
-    if (error.status === 402 || error.message?.includes('quota') || error.message?.includes('billing')) {
+    if (status === 402 || message.toLowerCase().includes('quota') || message.toLowerCase().includes('billing')) {
       return {
         code: 'QUOTA_EXCEEDED',
         message: 'API quota exceeded or billing issue',
@@ -148,7 +152,7 @@ export abstract class BaseAIProvider {
     // 默认错误
     return {
       code: 'PROVIDER_ERROR',
-      message: error.message || 'Unknown provider error',
+      message: message || 'Unknown provider error',
       provider: providerName,
       isRetryable: false,
       suggestedAction: 'Please try again or contact support'
@@ -158,6 +162,10 @@ export abstract class BaseAIProvider {
   // 生成唯一请求ID
   protected generateRequestId(): string {
     return `${this.getName()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  createRequestId(): string {
+    return this.generateRequestId();
   }
 
   // 估算请求成本（用于UI显示）
@@ -182,6 +190,20 @@ export abstract class BaseAIProvider {
         return 0;
     }
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (isRecord(error) && typeof error.message === 'string') {
+    return error.message;
+  }
+  return String(error);
 }
 
 // 提供商接口类型

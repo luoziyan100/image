@@ -4,7 +4,6 @@ import React, { useState, useCallback } from 'react';
 import { cn } from '@/utils/cn';
 
 interface CreationChatProps {
-  projectId: string;
   isGenerating: boolean;
   creationMessage: string;
   prompt: string;
@@ -43,7 +42,6 @@ const AI_RESPONSES = {
 };
 
 export const CreationChat: React.FC<CreationChatProps> = ({
-  projectId,
   isGenerating,
   creationMessage,
   prompt,

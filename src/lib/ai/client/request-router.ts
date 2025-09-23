@@ -11,7 +11,7 @@ import {
   GenerationEvent,
   RequestContext
 } from '../core/types';
-import { BaseAIProvider, ProviderRegistry } from '../core/base-provider';
+import { ProviderRegistry } from '../core/base-provider';
 import { apiKeyManager } from './api-key-manager';
 import { providerSelector } from './provider-selector';
 
@@ -277,7 +277,7 @@ export class RequestRouter {
     throw lastError || new Error('Request failed after all attempts');
   }
 
-  private handleRequestError(error: any, state: RequestState): ProviderError {
+  private handleRequestError(error: unknown, state: RequestState): ProviderError {
     const provider = state.provider || 'unknown';
 
     if (error instanceof Error) {
@@ -290,19 +290,19 @@ export class RequestRouter {
       };
     }
 
-    if (typeof error === 'object' && error.code) {
+    if (isProviderErrorLike(error)) {
       return {
-        code: error.code,
-        message: error.message || 'Unknown error',
+        code: error.code ?? 'UNKNOWN_ERROR',
+        message: error.message ?? 'Unknown error',
         provider,
         isRetryable: error.isRetryable !== false,
-        suggestedAction: error.suggestedAction || 'Please try again'
+        suggestedAction: error.suggestedAction ?? 'Please try again'
       };
     }
 
     return {
       code: 'UNKNOWN_ERROR',
-      message: String(error),
+      message: getUnknownErrorMessage(error),
       provider,
       isRetryable: false,
       suggestedAction: 'Please check your request and try again'
@@ -353,15 +353,17 @@ export class RequestRouter {
   private createErrorResult(
     requestId: string,
     request: GenerationRequest,
-    error: any
+    error: unknown
   ): GenerationResult {
+    const code = getUnknownErrorCode(error) ?? 'REQUEST_FAILED';
+    const message = getUnknownErrorMessage(error);
     return {
       id: requestId,
       type: request.type,
       status: 'failed',
       error: {
-        code: error.code || 'REQUEST_FAILED',
-        message: error.message || String(error),
+        code,
+        message,
         details: error
       },
       createdAt: new Date().toISOString()
@@ -371,7 +373,7 @@ export class RequestRouter {
   private emitEvent(
     type: GenerationEvent['type'],
     requestId: string,
-    data?: any
+    data?: unknown
   ): void {
     const event: GenerationEvent = {
       type,
@@ -419,3 +421,35 @@ export class RequestRouter {
 
 // 单例导出
 export const requestRouter = RequestRouter.getInstance();
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+interface ProviderErrorLike {
+  code?: string;
+  message?: string;
+  isRetryable?: boolean;
+  suggestedAction?: string;
+}
+
+function isProviderErrorLike(error: unknown): error is ProviderErrorLike {
+  return isRecord(error) && ('code' in error || 'message' in error);
+}
+
+function getUnknownErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (isRecord(error) && typeof error.message === 'string') {
+    return error.message;
+  }
+  return String(error);
+}
+
+function getUnknownErrorCode(error: unknown): string | undefined {
+  if (isRecord(error) && typeof error.code === 'string') {
+    return error.code;
+  }
+  return undefined;
+}

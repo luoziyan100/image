@@ -13,7 +13,7 @@ export class BudgetGuardian {
     this.monthlyLimitCents = parseInt(process.env.MONTHLY_BUDGET_CENTS!) || 1000000; // ¥10,000
   }
   
-  async checkBudget(req: NextRequest): Promise<{
+  async checkBudget(): Promise<{
     allowed: boolean;
     budgetInfo?: BudgetInfo;
     error?: string;
@@ -37,7 +37,7 @@ export class BudgetGuardian {
       // 软限制：95% 时降级服务
       if (usageRatio >= 0.95) {
         // 只允许付费用户使用，或限制为低质量模式
-        const userPlan = await this.getUserPlan(req);
+        const userPlan = await this.getUserPlan();
         if (userPlan !== 'premium') {
           return {
             allowed: false,
@@ -67,7 +67,7 @@ export class BudgetGuardian {
     }
   }
   
-  private async getCurrentBudgetInfo(monthYear: string): Promise<BudgetInfo> {
+  async getCurrentBudgetInfo(monthYear: string): Promise<BudgetInfo> {
     return await withDatabase(async (pg) => {
       const result = await pg.query(`
         SELECT total_cost_cents, total_api_calls, total_images_generated
@@ -88,7 +88,7 @@ export class BudgetGuardian {
     });
   }
   
-  private async getUserPlan(req: NextRequest): Promise<string> {
+  private async getUserPlan(): Promise<string> {
     // TODO: 从JWT token中提取用户信息
     // 暂时返回free用户
     return 'free';
@@ -109,9 +109,9 @@ export class BudgetGuardian {
 }
 
 // 预算检查中间件
-export async function budgetMiddleware(req: NextRequest): Promise<NextResponse | null> {
+export async function budgetMiddleware(): Promise<NextResponse | null> {
   const guardian = new BudgetGuardian();
-  const result = await guardian.checkBudget(req);
+  const result = await guardian.checkBudget();
   
   if (!result.allowed) {
     if (result.error === 'SERVICE_TEMPORARILY_UNAVAILABLE') {

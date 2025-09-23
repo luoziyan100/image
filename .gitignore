@@ -61,3 +61,8 @@ next-env.d.ts
 # Debug images
 test-*.jpg
 test-*.png
+
+# AI discussions and development notes (private)
+/humantalkwithClaude/
+/.claude/
+/.gemini-clipboard/

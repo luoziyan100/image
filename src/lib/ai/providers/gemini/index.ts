@@ -4,9 +4,7 @@ import {
   GenerationRequest, 
   GenerationResult, 
   ProviderCapabilities,
-  ApiKeyValidationResult,
-  TextToImageRequest,
-  ImageToImageRequest
+  ApiKeyValidationResult
 } from '../../core/types';
 import { GEMINI_CONFIG, GEMINI_API } from './config';
 import { GeminiTextToImageProvider } from './text-to-image';
@@ -108,19 +106,14 @@ export class GeminiProvider extends BaseAIProvider {
       };
     }
 
-    // 根据请求类型路由到相应的处理器
-    switch (request.type) {
+    const requestType = request.type;
+
+    switch (requestType) {
       case 'text-to-image':
-        return await this.textToImageProvider.generateImage(
-          request as TextToImageRequest,
-          this.apiKey
-        );
+        return this.textToImageProvider.generateImage(request, this.apiKey);
 
       case 'image-to-image':
-        return await this.imageToImageProvider.transformImage(
-          request as ImageToImageRequest,
-          this.apiKey
-        );
+        return this.imageToImageProvider.transformImage(request, this.apiKey);
 
       case 'text-to-video':
         throw new Error('Text-to-video not supported by Gemini provider');
@@ -129,7 +122,7 @@ export class GeminiProvider extends BaseAIProvider {
         throw new Error('Image-to-video not supported by Gemini provider');
 
       default:
-        throw new Error(`Unsupported request type: ${(request as any).type}`);
+        throw new Error(`Unsupported request type: ${requestType}`);
     }
   }
 

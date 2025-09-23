@@ -14,6 +14,7 @@ export default function CreationPage() {
     currentProject, 
     canvasState, 
     generationState,
+    uiState,
     actions 
   } = useAppStore();
 
@@ -24,8 +25,8 @@ export default function CreationPage() {
     if (!currentProject) {
       const defaultProject = {
         id: 'default-project-' + Date.now(),
-        title: '我的第一个创作',
-        description: '在这里开始你的AI创作之旅',
+        title: '我的创意故事',
+        description: '✨ 每个人都能成为故事创作者，让我们开始这段魔法之旅吧！',
         type: 'single_image' as const,
         status: 'draft' as const,
         createdAt: new Date().toISOString(),
@@ -48,6 +49,8 @@ export default function CreationPage() {
       <div className="creation-page flex flex-col min-h-screen">
         {/* 顶部工具栏 */}
         <TopToolbar 
+          activeWorkspace={uiState.activeWorkspace}
+          onWorkspaceChange={actions.setActiveWorkspace}
           activeMode={currentProject?.type === 'single_image' ? 'single' : currentProject?.type === 'comic_strip' ? 'comic' : 'single'}
           activeTool={canvasState.activeTool}
           brushColor={canvasState.brushColor}
@@ -66,11 +69,6 @@ export default function CreationPage() {
           onToolChange={actions.setActiveTool}
           onColorChange={actions.setBrushColor}
           onSizeChange={actions.setBrushSize}
-          onUndo={() => console.log('Undo')}
-          onRedo={() => console.log('Redo')}
-          onClear={() => console.log('Clear')}
-          canUndo={false}
-          canRedo={false}
         />
 
         {/* 主内容区域 - 使用新的三区块布局 */}
@@ -117,4 +115,3 @@ export default function CreationPage() {
     </AppLayout>
   );
 }
-

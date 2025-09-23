@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useImperativeHandle, forwardRef, useRef } from 'react';
 import { cn } from '@/utils/cn';
 import { Canvas } from './Canvas';
 
 interface MainCanvasAreaProps {
-  projectId: string;
   activeTool: 'draw' | 'erase' | 'upload' | 'select';
   brushColor: string;
   brushSize: number;
@@ -15,8 +14,11 @@ interface MainCanvasAreaProps {
   className?: string;
 }
 
-export const MainCanvasArea: React.FC<MainCanvasAreaProps> = ({
-  projectId,
+export const MainCanvasArea = forwardRef<{
+  loadImage: (imageUrl: string) => void;
+  exportPoseImage: () => string | null;
+  exportMaskImage: () => string | null;
+}, MainCanvasAreaProps>(({ 
   activeTool,
   brushColor,
   brushSize,
@@ -24,8 +26,22 @@ export const MainCanvasArea: React.FC<MainCanvasAreaProps> = ({
   onImageUpload,
   isGenerating,
   className
-}) => {
+}, ref) => {
   const [hasCanvasContent, setHasCanvasContent] = useState(false);
+  const canvasRef = useRef<{
+    loadImage: (imageUrl: string) => void;
+    exportPoseImage: () => string | null;
+    exportMaskImage: () => string | null;
+  }>(null);
+
+  // 暴露loadImage方法给父组件
+  useImperativeHandle(ref, () => ({
+    loadImage: (imageUrl: string) => {
+      canvasRef.current?.loadImage(imageUrl);
+    },
+    exportPoseImage: () => canvasRef.current?.exportPoseImage() || null,
+    exportMaskImage: () => canvasRef.current?.exportMaskImage() || null
+  }), []);
 
   // 处理画布内容变化
   const handleCanvasChange = useCallback((hasChanges: boolean, imageData?: string) => {
@@ -44,9 +60,10 @@ export const MainCanvasArea: React.FC<MainCanvasAreaProps> = ({
       {/* 主画布区域 */}
       <div className="canvas-container flex-1">
         <Canvas
+          ref={canvasRef}
           projectId={projectId}
-          width={600}  // 主画布更大
-          height={400}
+          width={680}
+          height={520}
           activeTool={activeTool}
           brushColor={brushColor}
           brushSize={brushSize}
@@ -56,44 +73,46 @@ export const MainCanvasArea: React.FC<MainCanvasAreaProps> = ({
         />
       </div>
 
-      {/* 画布底部信息栏 */}
-      <div className="canvas-footer px-3 py-1 border-t border-gray-100 bg-gray-50 rounded-b-lg">
-        <div className="flex items-center justify-between text-xs text-gray-500">
+      {/* 画布底部温暖提示 */}
+      <div className="canvas-footer px-4 py-2 border-t border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50 rounded-b-lg">
+        <div className="flex items-center justify-between text-xs">
           
-          {/* 左侧：当前工具信息 */}
-          <div className="tool-info flex items-center gap-4">
-            <span>工具: {
-              activeTool === 'draw' ? '🖌️ 画笔' :
-              activeTool === 'erase' ? '🧽 橡皮擦' : 
-              activeTool === 'select' ? '👆 选择' : '❓ 未知'
-            }</span>
-            
+          {/* 左侧：温暖的状态提示 */}
+          <div className="status-info flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              {hasCanvasContent ? (
+                <>
+                  <span className="text-green-500">●</span>
+                  <span className="text-green-700 font-medium">有内容啦！随时可以创作</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-gray-400">○</span>
+                  <span className="text-gray-500">空白画布，等待你的创意</span>
+                </>
+              )}
+            </span>
+          </div>
+          
+          {/* 右侧：简化的当前工具 */}
+          <div className="tool-hint text-gray-600">
             {activeTool === 'draw' && (
-              <span>颜色: 
+              <span className="flex items-center gap-1">
+                🖌️ 
                 <span 
-                  className="inline-block w-3 h-3 rounded-full ml-1 border border-gray-300" 
+                  className="inline-block w-3 h-3 rounded-full border border-gray-300" 
                   style={{ backgroundColor: brushColor }}
                 />
               </span>
             )}
-            
-            {activeTool === 'erase' && (
-              <span>模式: 擦除</span>
-            )}
-            
-            {(activeTool === 'draw' || activeTool === 'erase') && (
-              <span>大小: {brushSize}px</span>
-            )}
-          </div>
-          
-          {/* 右侧：画布信息 */}
-          <div className="canvas-info flex items-center gap-4">
-            <span>尺寸: 600×400</span>
-            <span>状态: {hasCanvasContent ? '已编辑' : '空白'}</span>
+            {activeTool === 'erase' && <span>🧽</span>}
+            {activeTool === 'select' && <span>👆</span>}
           </div>
         </div>
       </div>
 
     </div>
   );
-};
+});
+
+MainCanvasArea.displayName = 'MainCanvasArea';

@@ -176,20 +176,17 @@ export class AIService {
   }
 
   // 清理资源
-  cleanup(): void {
-    // 清理事件监听器和活跃请求
-    const activeRequests = AIService.instance ? 
-      import('./client/request-router').then(({ requestRouter }) => 
-        requestRouter.getActiveRequests()
-      ) : [];
-    
-    activeRequests.then(requests => {
-      requests.forEach(requestId => {
-        import('./client/request-router').then(({ requestRouter }) => {
-          requestRouter.cancelRequest(requestId);
-        });
-      });
-    });
+  async cleanup(): Promise<void> {
+    if (!AIService.instance) {
+      return;
+    }
+
+    const { requestRouter } = await import('./client/request-router');
+    const activeRequests = requestRouter.getActiveRequests();
+
+    await Promise.all(
+      activeRequests.map(requestId => requestRouter.cancelRequest(requestId))
+    );
   }
 }
 
@@ -243,7 +240,8 @@ export async function transformImage(
     prompt,
     ...options
   };
-  
+  // 兼容：如传入 sourceImages 数组，保留 sourceImage 但优先由 provider 读取 sourceImages 顺序
+
   return await aiService.generate(request, options);
 }
 

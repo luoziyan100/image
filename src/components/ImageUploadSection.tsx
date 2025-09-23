@@ -6,6 +6,7 @@ import { cn } from '@/utils/cn';
 interface ImageUploadSectionProps {
   onImageUpload: (file: File) => void;
   onImagesChange?: (images: UploadedImage[]) => void;
+  onLoadToCanvas?: (imageUrl: string) => void;
   maxImages?: number;
   className?: string;
 }
@@ -21,6 +22,7 @@ interface UploadedImage {
 export const ImageUploadSection: React.FC<ImageUploadSectionProps> = ({
   onImageUpload,
   onImagesChange,
+  onLoadToCanvas,
   maxImages = 5,
   className
 }) => {
@@ -105,6 +107,20 @@ export const ImageUploadSection: React.FC<ImageUploadSectionProps> = ({
     });
   }, [onImagesChange]);
 
+  // 上移/下移
+  const moveImage = useCallback((imageId: string, direction: 'up' | 'down') => {
+    setUploadedImages(prev => {
+      const idx = prev.findIndex(i => i.id === imageId);
+      if (idx === -1) return prev;
+      const newArr = [...prev];
+      const swapWith = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapWith < 0 || swapWith >= newArr.length) return prev;
+      [newArr[idx], newArr[swapWith]] = [newArr[swapWith], newArr[idx]];
+      onImagesChange?.(newArr);
+      return newArr;
+    });
+  }, [onImagesChange]);
+
   // 格式化文件大小
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -161,7 +177,7 @@ export const ImageUploadSection: React.FC<ImageUploadSectionProps> = ({
             已上传 {uploadedImages.length} 张图片
           </div>
           
-          <div className="images-list space-y-2 max-h-32 overflow-y-auto">
+          <div className="images-list space-y-2 max-h-40 overflow-y-auto">
             {uploadedImages.map((image) => (
               <div
                 key={image.id}
@@ -185,6 +201,34 @@ export const ImageUploadSection: React.FC<ImageUploadSectionProps> = ({
                     {formatFileSize(image.size)}
                   </div>
                 </div>
+                
+                {/* 编辑画布按钮 */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLoadToCanvas?.(image.url);
+                  }}
+                  className="edit-btn w-6 h-6 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 flex items-center justify-center text-xs transition-colors"
+                  title="在画布上编辑"
+                >
+                  ✏️
+                </button>
+
+                {/* 上下移动 */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); moveImage(image.id, 'up'); }}
+                  className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center text-xs"
+                  title="上移"
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); moveImage(image.id, 'down'); }}
+                  className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center text-xs"
+                  title="下移"
+                >
+                  ↓
+                </button>
                 
                 {/* 删除按钮 */}
                 <button

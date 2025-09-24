@@ -9,7 +9,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Image2Video AI - AI驱动的创意工具",
-  description: "将手绘草图转换为精美作品，支持单图和连环画创作",
+  description: "将手绘草图转换为精美作品，提供温暖的创作体验",
 };
 
 export default function RootLayout({

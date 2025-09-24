@@ -51,21 +51,9 @@ export default function CreationPage() {
         <TopToolbar 
           activeWorkspace={uiState.activeWorkspace}
           onWorkspaceChange={actions.setActiveWorkspace}
-          activeMode={currentProject?.type === 'single_image' ? 'single' : currentProject?.type === 'comic_strip' ? 'comic' : 'single'}
           activeTool={canvasState.activeTool}
           brushColor={canvasState.brushColor}
           brushSize={canvasState.brushSize}
-          onModeChange={(mode) => {
-            // 模式切换逻辑
-            const currentMode = currentProject?.type === 'single_image' ? 'single' : currentProject?.type === 'comic_strip' ? 'comic' : 'single';
-            if (currentProject && currentMode !== mode) {
-              actions.showNotification({
-                type: 'info',
-                message: `切换到${mode === 'single' ? '单图' : '连环画'}模式`,
-                autoHide: true
-              });
-            }
-          }}
           onToolChange={actions.setActiveTool}
           onColorChange={actions.setBrushColor}
           onSizeChange={actions.setBrushSize}

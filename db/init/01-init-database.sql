@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS projects (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    project_type VARCHAR(50) NOT NULL CHECK (project_type IN ('single', 'comic')),
+    project_type VARCHAR(50) NOT NULL CHECK (project_type = 'single_image'),
     status VARCHAR(50) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'processing', 'completed', 'failed')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

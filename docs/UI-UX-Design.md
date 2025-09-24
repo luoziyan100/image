@@ -19,7 +19,7 @@
 
 | Token | Tailwind 对应 | 用途 |
 | --- | --- | --- |
-| `color.primary` | `bg-blue-500` / `text-blue-600` | 主要交互按钮、模式切换选中态 |
+| `color.primary` | `bg-blue-500` / `text-blue-600` | 主要交互按钮、高亮态 |
 | `color.accent` | `from-purple-50 to-pink-50` 渐变 | 右侧栏标题、情绪背景 |
 | `color.success` | `text-green-600` / `bg-green-50` | 生成成功提示、画布“有内容”指示 |
 | `color.warning` | `bg-blue-50` / `text-blue-700` | 生成中的信息条 |
@@ -48,7 +48,7 @@
 ### 4.1 TopToolbar (`src/components/TopToolbar.tsx`)
 - 左侧：工作区切换（创作工作台 / 贴纸模式），按钮组合使用圆角 + 选中蓝底白字。
 - 中部：仅在画布模式显示，包含
-  - 模式切换（单图/连环画，后者目前仅提示信息）
+  - 模式切换区域已简化，仅保留工作区（画布 / 贴纸）切换
   - 工具切换（画笔、橡皮、选择）
   - 预设颜色 8 个，选中时加粗边框、略放大
   - 画笔大小预设 6 档，选中时蓝色强调

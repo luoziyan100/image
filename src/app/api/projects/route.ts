@@ -54,9 +54,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!['single_image', 'comic_strip'].includes(type)) {
+    if (type !== 'single_image') {
       return NextResponse.json(
-        { error: '项目类型必须是 single_image 或 comic_strip' },
+        { error: '项目类型必须是 single_image' },
         { status: 400 }
       );
     }

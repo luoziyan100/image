@@ -5,7 +5,7 @@ export interface Project {
   id: string;
   title: string;
   description?: string;
-  type: 'single_image' | 'comic_strip'; // 匹配数据库枚举
+  type: 'single_image';
   status: 'draft' | 'processing' | 'completed' | 'failed';
   createdAt: string;
   updatedAt: string;
@@ -21,7 +21,7 @@ export interface Asset {
   status: 'pending' | 'auditing_input' | 'generating' | 'auditing_output' | 'uploading' | 'completed' | 'failed';
   errorMessage?: string;
   errorCode?: string;
-  positionInProject: number; // 连环画中的位置
+  positionInProject: number; // 序列中的位置（预留）
   aiModelVersion?: string; // 记录使用的AI模型版本
   generationSeed?: number; // AI生成使用的种子值
   processingTimeMs?: number; // 生成耗时(毫秒)

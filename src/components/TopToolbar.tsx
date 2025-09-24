@@ -4,16 +4,13 @@ import React from 'react';
 import { cn } from '@/utils/cn';
 
 export type Tool = 'draw' | 'erase' | 'upload' | 'select';
-export type Mode = 'single' | 'comic';
 type Workspace = 'canvas' | 'sticker';
 
 interface TopToolbarProps {
   // 模式和工具
   activeWorkspace: Workspace;
   onWorkspaceChange: (workspace: Workspace) => void;
-  activeMode: Mode;
   activeTool: Tool;
-  onModeChange: (mode: Mode) => void;
   onToolChange: (tool: Tool) => void;
   
   // 画笔属性
@@ -43,9 +40,7 @@ const BRUSH_SIZES = [2, 4, 8, 12, 16, 20];
 export const TopToolbar: React.FC<TopToolbarProps> = ({
   activeWorkspace,
   onWorkspaceChange,
-  activeMode,
   activeTool,
-  onModeChange,
   onToolChange,
   brushColor,
   brushSize,
@@ -90,35 +85,6 @@ export const TopToolbar: React.FC<TopToolbarProps> = ({
           </div>
         </div>
 
-        {activeWorkspace === 'canvas' && (
-          <div className="mode-selector flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">模式:</span>
-            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-              <button
-                onClick={() => onModeChange('single')}
-                className={cn(
-                  'px-3 py-1 text-sm transition-colors',
-                  activeMode === 'single'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                )}
-              >
-                🖼️ 单图
-              </button>
-              <button
-                onClick={() => onModeChange('comic')}
-                className={cn(
-                  'px-3 py-1 text-sm transition-colors border-l border-gray-300',
-                  activeMode === 'comic'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                )}
-              >
-                📚 连环画
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 中间：绘制工具或贴纸说明 */}

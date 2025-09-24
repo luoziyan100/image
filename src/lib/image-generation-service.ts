@@ -63,12 +63,12 @@ function enhancePrompt(originalPrompt: string): string {
   return enhancedPrompt;
 }
 
-// 连环画一致性管理器
+// 序列一致性管理器（预留能力）
 export class ComicConsistencyManager {
   private characterDescriptions: Map<string, string> = new Map();
   private stylePrompts: Map<string, string> = new Map();
   
-  // 为连环画项目建立角色一致性
+  // 为多帧项目建立角色一致性
   establishCharacterConsistency(projectId: string, firstFramePrompt: string) {
     // 从首帧提示词中提取角色描述
     const characters = this.extractCharacters(firstFramePrompt);

@@ -103,7 +103,7 @@ class NanoBananaService {
     };
   }
   
-  // 连环画一致性支持
+  // 序列一致性支持（保留扩展能力）
   async generateConsistentFrame(params: {
     projectId: string;
     frameIndex: number;

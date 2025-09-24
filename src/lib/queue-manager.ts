@@ -34,7 +34,6 @@ export const imageQueue = new Queue<GenerationJobData, GenerationJobResult, stri
 // 任务类型定义
 export const JOB_TYPES = {
   GENERATE_SINGLE_IMAGE: 'generate-single-image',
-  GENERATE_COMIC_FRAME: 'generate-comic-frame',
   PROCESS_VIDEO: 'process-video', // Phase 2
   CLEANUP_RESOURCES: 'cleanup-resources'
 } as const;

@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    project_type VARCHAR(50) NOT NULL CHECK (project_type IN ('single_image', 'comic_strip')),
+    project_type VARCHAR(50) NOT NULL CHECK (project_type = 'single_image'),
     status VARCHAR(50) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'processing', 'completed', 'failed')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS assets (
     )),
     error_message TEXT,
     error_code VARCHAR(100), -- 结构化错误码
-    position_in_project INT DEFAULT 0, -- 连环画中的位置
+    position_in_project INT DEFAULT 0, -- 序列中的位置（预留）
     ai_model_version VARCHAR(100), -- 记录使用的AI模型版本
     generation_seed BIGINT, -- AI生成使用的种子值
     processing_time_ms INT, -- 生成耗时(毫秒)

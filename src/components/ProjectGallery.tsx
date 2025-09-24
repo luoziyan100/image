@@ -12,7 +12,7 @@ interface ProjectGalleryProps {
 
 export function ProjectGallery({ onClose, onProjectSelect }: ProjectGalleryProps) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [filter, setFilter] = useState<'all' | 'single_image' | 'comic_strip' | 'processing'>('all');
+  const [filter, setFilter] = useState<'all' | 'single_image' | 'processing'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   
@@ -94,12 +94,6 @@ export function ProjectGallery({ onClose, onProjectSelect }: ProjectGalleryProps
                 onClick={() => setFilter('single_image')}
               >
                 🖼️ 单图
-              </FilterTab>
-              <FilterTab 
-                active={filter === 'comic_strip'} 
-                onClick={() => setFilter('comic_strip')}
-              >
-                📚 连环画
               </FilterTab>
               <FilterTab 
                 active={filter === 'processing'} 
@@ -231,7 +225,7 @@ function ProjectCard({ project, onClick }: ProjectCardProps) {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400">
-              {project.type === 'comic_strip' ? '📚' : '🖼️'}
+              🖼️
             </div>
           )}
           
